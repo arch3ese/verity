@@ -112,28 +112,30 @@ Provide your evaluation in valid JSON with these exact keys:
 }}
 Only return JSON. No introductory pleasantries."""
 
-        # Attempt structured output first if supported by model
-        try:
-            structured_model = self.judge_model.with_structured_output(PairwiseVerdict)
-            verdict = structured_model.invoke([
-                SystemMessage(content=SYSTEM_PROMPT),
-                HumanMessage(content=human_prompt)
-            ])
-            if isinstance(verdict, PairwiseVerdict):
-                return verdict
-        except Exception:
-            pass  # Fall back to raw generation and robust parsing
-
-        # Fallback generation
+        # Direct generation with strict JSON prompt
         result = self.judge_model.invoke([
             SystemMessage(content=SYSTEM_PROMPT),
             HumanMessage(content=human_prompt)
         ])
-        raw_text = result.content if hasattr(result, "content") else str(result)
+        
+        # Handle string or list of content chunks
+        if hasattr(result, "content"):
+            if isinstance(result.content, str):
+                raw_text = result.content
+            elif isinstance(result.content, list):
+                raw_text = "".join(
+                    part if isinstance(part, str) else part.get("text", "")
+                    for part in result.content
+                )
+            else:
+                raw_text = str(result.content)
+        else:
+            raw_text = str(result)
+
         return self._parse_json_verdict(raw_text)
 
     def _parse_json_verdict(self, text: str) -> PairwiseVerdict:
-        """Robustly extracts JSON verdict from model response with markdown stripping."""
+        """Robustly extracts JSON verdict from model response with markdown stripping and regex fallback."""
         clean = text.strip()
         if clean.startswith("```json"):
             clean = clean[7:]
@@ -147,19 +149,31 @@ Only return JSON. No introductory pleasantries."""
             data = json.loads(clean)
             return PairwiseVerdict.model_validate(data)
         except Exception:
-            # Fallback if parsing fails or invalid keys
-            return PairwiseVerdict(
-                winner=PreferenceChoice.TIE,
-                margin="slight",
-                overall_reasoning=f"Automated parsing fallback. Raw output:\n{text[:400]}",
-                dimension_scores=[
-                    DimensionScore(
-                        dimension=RatingDimension.INSTRUCTION_FOLLOWING,
-                        score_a=3.0,
-                        score_b=3.0,
-                        justification="Fallback assignment"
-                    )
-                ],
-                detected_errors_model_a=[],
-                detected_errors_model_b=[]
-            )
+            pass
+
+        # Try regex search for outermost {...} block
+        import re
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group(0))
+                return PairwiseVerdict.model_validate(data)
+            except Exception:
+                pass
+
+        # Fallback if parsing fails or invalid keys
+        return PairwiseVerdict(
+            winner=PreferenceChoice.TIE,
+            margin="slight",
+            overall_reasoning=f"Automated parsing fallback. Raw output:\n{text[:400]}",
+            dimension_scores=[
+                DimensionScore(
+                    dimension=RatingDimension.INSTRUCTION_FOLLOWING,
+                    score_a=3.0,
+                    score_b=3.0,
+                    justification="Fallback assignment"
+                )
+            ],
+            detected_errors_model_a=[],
+            detected_errors_model_b=[]
+        )

@@ -296,7 +296,7 @@ class EvaluationRequest(BaseModel):
     model_a_name: str = "Candidate A"
     model_b_name: str = "Candidate B"
     provider: str = "gemini"
-    model_name: str = "gemini-3.8-flash"
+    model_name: str = "gemini-3.5-flash-lite"
     api_key: Optional[str] = None
 
 
@@ -328,7 +328,7 @@ def get_status():
         "gemini_configured": bool(gemini_key and len(gemini_key.strip()) > 5),
         "openai_configured": bool(openai_key and len(openai_key.strip()) > 5),
         "default_provider": "gemini",
-        "default_model": "gemini-3.8-flash",
+        "default_model": "gemini-3.5-flash-lite",
     }
 
 
@@ -363,34 +363,44 @@ def evaluate_pair(req: EvaluationRequest):
 
     # Initialize model
     provider = req.provider.strip().lower()
-    if provider in ["gemini", "google", ""]:
-        api_key = req.api_key or os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise HTTPException(
-                status_code=400,
-                detail="Google Gemini API key not found. Please provide it in Settings.",
-            )
-        chat_model = get_chat_model("gemini", req.model_name or "gemini-3.8-flash", api_key=api_key)
-    elif provider == "openai":
-        api_key = req.api_key or os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise HTTPException(status_code=400, detail="OpenAI API key not found.")
-        chat_model = get_chat_model("openai", req.model_name, api_key=api_key)
-    else:
-        chat_model = get_chat_model("gemini", "gemini-3.8-flash", api_key=os.getenv("GEMINI_API_KEY"))
+    try:
+        if provider in ["gemini", "google", ""]:
+            api_key = req.api_key or os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Google Gemini API key not found. Please provide it in Settings.",
+                )
+            chat_model = get_chat_model("gemini", req.model_name or "gemini-3.5-flash-lite", api_key=api_key)
+        elif provider == "openai":
+            api_key = req.api_key or os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=400, detail="OpenAI API key not found.")
+            chat_model = get_chat_model("openai", req.model_name, api_key=api_key)
+        else:
+            chat_model = get_chat_model("gemini", "gemini-3.5-flash-lite", api_key=os.getenv("GEMINI_API_KEY"))
 
-    judge = PairwiseJudge(chat_model)
-    debiaser = DebiasingJudge(judge)
+        judge = PairwiseJudge(chat_model)
+        debiaser = DebiasingJudge(judge)
 
-    evaluation = debiaser.evaluate_with_debiasing(
-        sample=sample,
-        response_a=req.response_a,
-        response_b=req.response_b,
-        model_a_name=req.model_a_name,
-        model_b_name=req.model_b_name,
-    )
+        evaluation = debiaser.evaluate_with_debiasing(
+            sample=sample,
+            response_a=req.response_a,
+            response_b=req.response_b,
+            model_a_name=req.model_a_name,
+            model_b_name=req.model_b_name,
+        )
 
-    return evaluation.model_dump()
+        return evaluation.model_dump()
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Evaluation failed: {str(e)}"
+        )
 
 
 @app.post("/api/agreement")

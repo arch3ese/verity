@@ -122,7 +122,7 @@
             <div class="flex items-center space-x-2">
               <label class="text-xs text-slate-400">Live AI Judge:</label>
               <select id="judge-provider" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2.5 py-1 text-slate-200 focus:outline-none focus:border-indigo-500">
-                <option value="gemini">Google Gemini (gemini-3.8-flash)</option>
+                <option value="gemini">Google Gemini (3.5 Flash-Lite / auto-failover)</option>
               </select>
             </div>
           </div>
@@ -193,7 +193,7 @@
         </button>
         <div id="eval-status-indicator" class="hidden text-xs text-indigo-300 font-medium animate-pulse mt-3 text-center flex items-center space-x-2">
           <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-indigo-400"></i>
-          <span id="eval-status-msg">Querying Gemini 3.8 Flash in parallel (Pass 1: A vs B & Pass 2: B vs A)...</span>
+          <span id="eval-status-msg">Querying Gemini Flash in parallel (Pass 1: A vs B & Pass 2: B vs A)...</span>
         </div>
       </div>
 
@@ -474,11 +474,11 @@
         const localKey = localStorage.getItem('gemini_api_key');
         if (data.gemini_configured || localKey) {
           document.getElementById('api-status-dot').className = "w-2 h-2 rounded-full bg-emerald-400";
-          document.getElementById('api-status-text').innerText = "Gemini 3.8 Flash Connected";
+          document.getElementById('api-status-text').innerText = "Gemini Flash Connected";
           document.getElementById('judge-provider').value = "gemini";
         } else {
           document.getElementById('api-status-dot').className = "w-2 h-2 rounded-full bg-emerald-400";
-          document.getElementById('api-status-text').innerText = "Gemini 3.8 Flash Ready";
+          document.getElementById('api-status-text').innerText = "Gemini Flash Ready";
           document.getElementById('judge-provider').value = "gemini";
         }
       } catch (e) {
@@ -528,14 +528,14 @@
 
       let elapsed = 0;
       btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Gemini Evaluating in Parallel (0s)...</span>`;
-      statusMsg.innerText = "Querying Gemini 3.8 Flash concurrently (Pass 1: A vs B & Pass 2: B vs A)...";
+      statusMsg.innerText = "Querying Gemini Flash concurrently (Pass 1: A vs B & Pass 2: B vs A)...";
       lucide.createIcons();
 
       const timer = setInterval(() => {
         elapsed++;
         btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Gemini Evaluating in Parallel (${elapsed}s)...</span>`;
         if (elapsed > 4) {
-          statusMsg.innerText = `Gemini 3.8 Flash is scoring 5 rubric dimensions and verifying order invariance (${elapsed}s)...`;
+          statusMsg.innerText = `Scoring 5 rubric dimensions and verifying order invariance (${elapsed}s)...`;
         }
         lucide.createIcons();
       }, 1000);
@@ -562,7 +562,7 @@
             model_a_name: modelAName,
             model_b_name: modelBName,
             provider: 'gemini',
-            model_name: 'gemini-3.8-flash',
+            model_name: 'gemini-3.5-flash-lite',
             api_key: storedKey,
           })
         });
