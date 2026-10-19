@@ -34,6 +34,22 @@ console = Console()
 
 
 @app.command()
+def ui(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host address to bind"),
+    port: int = typer.Option(8000, "--port", "-p", help="Port number"),
+):
+    """Launch the interactive AlignCraft Studio Web UI."""
+    console.print(Panel.fit(
+        f"[bold cyan]Launching AlignCraft Studio[/bold cyan]\n"
+        f"Server running at: [bold green]http://{host}:{port}[/bold green]\n"
+        f"Press [yellow]Ctrl+C[/yellow] to stop.",
+        title="AlignCraft Web Studio",
+    ))
+    from aligncraft.web.app import start_server
+    start_server(host=host, port=port)
+
+
+@app.command()
 def rubrics():
     """Display the RLHF multi-dimensional rubrics and error taxonomy."""
     console.print(Panel.fit("[bold cyan]AlignCraft RLHF Evaluation Rubrics[/bold cyan]"))

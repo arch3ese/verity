@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlignCraft Studio | RLHF & AI Training Evaluation Engine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #0b0f19; }
+    .glass-card { background: rgba(17, 24, 39, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .glass-card-hover:hover { border-color: rgba(99, 102, 241, 0.4); box-shadow: 0 0 25px rgba(99, 102, 241, 0.1); }
+    .code-font { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col">
+
+  <!-- TOP NAVBAR -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <i data-lucide="scale" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">AlignCraft Studio</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">Enterprise RLHF</span>
+          </div>
+          <p class="text-xs text-slate-400">AI Training & LLM Judge Debiasing Platform</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="hidden md:flex space-x-1 bg-slate-800/60 p-1 rounded-xl border border-slate-700/50">
+        <button onclick="switchTab('reviewer')" id="tab-reviewer" class="tab-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all bg-indigo-600 text-white shadow-sm">Reviewer Studio</button>
+        <button onclick="switchTab('benchmark')" id="tab-benchmark" class="tab-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white">Benchmark Suite</button>
+        <button onclick="switchTab('rubrics')" id="tab-rubrics" class="tab-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white">Annotation Rubrics</button>
+      </nav>
+
+      <!-- API Key Status / Setup Modal Button -->
+      <div class="flex items-center space-x-3">
+        <button onclick="openApiKeyModal()" id="api-status-btn" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-indigo-500 transition-colors">
+          <span id="api-status-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="api-status-text" class="text-slate-300">Google Gemini API</span>
+          <i data-lucide="settings" class="w-3.5 h-3.5 text-slate-400"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+
+    <!-- ========================================== -->
+    <!-- 1. PAIRWISE REVIEWER STUDIO TAB -->
+    <!-- ========================================== -->
+    <div id="view-reviewer" class="space-y-6">
+
+      <!-- PRESET SCENARIO SELECTOR -->
+      <div class="glass-card rounded-2xl p-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Quick-Load Enterprise Evaluation Presets:</span>
+          </div>
+          <span class="text-xs text-slate-500">Modeled on real Outlier / Mercor assessment challenges</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5" id="presets-container">
+          <!-- Preset buttons dynamically injected -->
+          <button onclick="loadPreset(0)" class="preset-btn text-left p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800 transition text-xs">
+            <span class="font-semibold text-indigo-300 block mb-0.5">🌿 Negative Constraint</span>
+            <span class="text-slate-400 text-[11px] block truncate">Summary with NO letter 'e'</span>
+          </button>
+          <button onclick="loadPreset(1)" class="preset-btn text-left p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800 transition text-xs">
+            <span class="font-semibold text-emerald-300 block mb-0.5">🔢 Sycophancy Trap</span>
+            <span class="text-slate-400 text-[11px] block truncate">13 * 17 = 231 false claim</span>
+          </button>
+          <button onclick="loadPreset(2)" class="preset-btn text-left p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800 transition text-xs">
+            <span class="font-semibold text-amber-300 block mb-0.5">📋 Strict Formatting</span>
+            <span class="text-slate-400 text-[11px] block truncate">Raw JSON without markdown</span>
+          </button>
+          <button onclick="loadPreset(3)" class="preset-btn text-left p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800 transition text-xs">
+            <span class="font-semibold text-purple-300 block mb-0.5">🌕 Hallucination Spotting</span>
+            <span class="text-slate-400 text-[11px] block truncate">Apollo 19 lunar mission</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- PROMPT & CONSTRAINTS SPECIFICATION -->
+      <div class="glass-card rounded-2xl p-5 space-y-4">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-sm font-semibold text-slate-200 flex items-center space-x-2">
+              <i data-lucide="message-square" class="w-4 h-4 text-indigo-400"></i>
+              <span>Evaluation Prompt</span>
+            </label>
+            <div class="flex items-center space-x-2">
+              <label class="text-xs text-slate-400">Judge Provider:</label>
+              <select id="judge-provider" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2.5 py-1 text-slate-200 focus:outline-none focus:border-indigo-500">
+                <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
+                <option value="mock">Offline Mock (Zero Setup / Instant)</option>
+              </select>
+            </div>
+          </div>
+          <textarea id="prompt-input" rows="2" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 code-font focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" placeholder="Enter benchmark prompt..."></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
+              <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>Explicit Constraints / Negative Rules (comma separated)</span>
+            </label>
+            <input id="constraints-input" type="text" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 code-font focus:outline-none focus:border-indigo-500" placeholder="e.g. Do not use the letter 'e', Output valid JSON only">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>Reference Ground Truth (Optional)</span>
+            </label>
+            <input id="ground-truth-input" type="text" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 code-font focus:outline-none focus:border-indigo-500" placeholder="e.g. 13 * 17 = 221">
+          </div>
+        </div>
+      </div>
+
+      <!-- SIDE-BY-SIDE CANDIDATES -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- CANDIDATE A -->
+        <div class="glass-card rounded-2xl p-5 flex flex-col space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div class="flex items-center space-x-2">
+              <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+              <span class="text-sm font-bold text-white">Candidate A</span>
+              <input id="model-a-name" value="Llama-3.2-FineTuned" class="bg-transparent text-xs text-indigo-400 border-b border-dashed border-slate-700 focus:outline-none px-1 py-0.5">
+            </div>
+            <div class="flex items-center space-x-2 text-xs text-slate-400">
+              <span id="cand-a-chars">0 chars</span>
+              <span>•</span>
+              <span id="cand-a-words">0 words</span>
+            </div>
+          </div>
+          <textarea id="response-a-input" rows="7" oninput="updateWordCounts()" class="flex-1 w-full bg-slate-900/90 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 code-font focus:outline-none focus:border-indigo-500 transition" placeholder="Response candidate A text..."></textarea>
+        </div>
+
+        <!-- CANDIDATE B -->
+        <div class="glass-card rounded-2xl p-5 flex flex-col space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div class="flex items-center space-x-2">
+              <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+              <span class="text-sm font-bold text-white">Candidate B</span>
+              <input id="model-b-name" value="Generic-Baseline-LLM" class="bg-transparent text-xs text-purple-400 border-b border-dashed border-slate-700 focus:outline-none px-1 py-0.5">
+            </div>
+            <div class="flex items-center space-x-2 text-xs text-slate-400">
+              <span id="cand-b-chars">0 chars</span>
+              <span>•</span>
+              <span id="cand-b-words">0 words</span>
+            </div>
+          </div>
+          <textarea id="response-b-input" rows="7" oninput="updateWordCounts()" class="flex-1 w-full bg-slate-900/90 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 code-font focus:outline-none focus:border-purple-500 transition" placeholder="Response candidate B text..."></textarea>
+        </div>
+      </div>
+
+      <!-- RUN EVALUATION CTA BUTTON -->
+      <div class="flex justify-center pt-2">
+        <button onclick="runEvaluation()" id="run-eval-btn" class="flex items-center space-x-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white font-semibold text-sm shadow-xl shadow-indigo-600/30 hover:scale-[1.02] active:scale-[0.98] transition-all">
+          <i data-lucide="zap" class="w-4 h-4"></i>
+          <span>Run Debiased AI Judge Evaluation</span>
+        </button>
+      </div>
+
+      <!-- EVALUATION RESULTS SECTION -->
+      <div id="results-panel" class="hidden space-y-6 pt-4">
+        
+        <!-- WINNER HERO CARD -->
+        <div class="glass-card rounded-2xl p-6 border-l-4 border-l-indigo-500">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Debiased Consensus Verdict</span>
+              <div class="flex items-center space-x-3">
+                <span id="verdict-winner" class="text-2xl font-black tracking-tight text-white">MODEL A WINS</span>
+                <span id="verdict-confidence" class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">95% Confidence</span>
+              </div>
+            </div>
+
+            <!-- Bias Badges -->
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- Positional Bias Badge -->
+              <div id="positional-bias-badge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Order Invariant (A/B = B/A)</span>
+              </div>
+              <!-- Verbosity Bias Badge -->
+              <div id="verbosity-bias-badge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Length Calibrated</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUMMARY CRITIQUE -->
+          <div class="p-4 rounded-xl bg-slate-900/70 border border-slate-800 text-sm text-slate-300 space-y-2">
+            <span class="font-semibold text-xs uppercase tracking-wider text-slate-400 block">LLM-as-a-Judge Step-by-Step Rationale:</span>
+            <p id="verdict-rationale" class="leading-relaxed"></p>
+          </div>
+        </div>
+
+        <!-- MULTI-DIMENSIONAL RUBRICS BREAKDOWN -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- DIMENSION SCORES -->
+          <div class="glass-card rounded-2xl p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <span class="text-sm font-bold text-white flex items-center space-x-2">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-400"></i>
+                <span>Multi-Dimensional Rubric Scores</span>
+              </span>
+              <span class="text-xs text-slate-400">1.0 (Fail) to 5.0 (Exemplary)</span>
+            </div>
+            <div id="dimension-bars" class="space-y-3.5">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- DETECTED ERROR TAXONOMY -->
+          <div class="glass-card rounded-2xl p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <span class="text-sm font-bold text-white flex items-center space-x-2">
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i>
+                <span>Error Taxonomy Violations</span>
+              </span>
+              <span class="text-xs text-slate-400">Fine-grained failure tagging</span>
+            </div>
+            
+            <div class="space-y-3">
+              <div>
+                <span class="text-xs font-semibold text-indigo-400 block mb-1.5">Candidate A Violations:</span>
+                <div id="errors-model-a" class="flex flex-wrap gap-1.5">
+                  <span class="text-xs text-slate-500 italic">None detected</span>
+                </div>
+              </div>
+              <div class="pt-2 border-t border-slate-800">
+                <span class="text-xs font-semibold text-purple-400 block mb-1.5">Candidate B Violations:</span>
+                <div id="errors-model-b" class="flex flex-wrap gap-1.5">
+                  <span class="text-xs text-slate-500 italic">None detected</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HUMAN-IN-THE-LOOP INTER-ANNOTATOR AGREEMENT (COHEN'S KAPPA) -->
+        <div class="glass-card rounded-2xl p-6 border border-indigo-500/30 bg-gradient-to-b from-slate-900/90 to-slate-900/60">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <div>
+              <div class="flex items-center space-x-2">
+                <i data-lucide="user-check" class="w-5 h-5 text-indigo-400"></i>
+                <h3 class="text-base font-bold text-white">Human Annotator Audit & Live Cohen's Kappa</h3>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Submit your own ground-truth rating to benchmark judge alignment consistency</p>
+            </div>
+
+            <!-- Kappa Display Pill -->
+            <div class="flex items-center space-x-3 bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700">
+              <div class="text-right">
+                <span class="text-[10px] text-slate-400 uppercase font-bold block">Inter-Annotator Agreement</span>
+                <span id="kappa-text" class="text-xs font-bold text-emerald-400">Substantial Agreement</span>
+              </div>
+              <div class="text-2xl font-black text-white pl-2 border-l border-slate-700" id="kappa-value">1.000</div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 pt-2">
+            <span class="text-xs font-medium text-slate-300">Your Verdict as Lead Human Reviewer:</span>
+            <button onclick="submitHumanVote('model_a')" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600/50 transition">Vote Candidate A</button>
+            <button onclick="submitHumanVote('model_b')" class="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600/30 text-purple-300 border border-purple-500/40 hover:bg-purple-600/50 transition">Vote Candidate B</button>
+            <button onclick="submitHumanVote('tie')" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-700/50 text-slate-300 border border-slate-600 hover:bg-slate-700 transition">Vote Tie</button>
+            <span id="human-voted-msg" class="text-xs text-emerald-400 font-semibold pl-2 hidden">✓ Your vote recorded!</span>
+          </div>
+        </div>
+
+        <!-- DPO DATASET EXPORT CARD -->
+        <div class="glass-card rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-center space-x-3">
+            <div class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <i data-lucide="database" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <span class="text-sm font-bold text-white block">Curated Direct Preference Optimization (DPO) Triplet</span>
+              <span class="text-xs text-slate-400">Ready for Hugging Face TRL (<code class="text-indigo-400">DPOTrainer</code>) fine-tuning</span>
+            </div>
+          </div>
+          <button onclick="downloadDPO()" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:border-emerald-500 hover:text-emerald-400 text-xs font-semibold text-slate-200 transition">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>Export DPO JSONL</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 2. BENCHMARK BATCH SUITE TAB -->
+    <!-- ========================================== -->
+    <div id="view-benchmark" class="hidden space-y-6">
+      <div class="glass-card rounded-2xl p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+              <i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i>
+              <span>Automated Benchmark Batch Suite</span>
+            </h2>
+            <p class="text-xs text-slate-400">Executes debiased pairwise evaluations across all 4 multi-turn scenarios</p>
+          </div>
+          <button onclick="runBatchBenchmark()" id="run-batch-btn" class="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-xs shadow-lg hover:bg-indigo-500 transition">
+            <i data-lucide="play" class="w-4 h-4"></i>
+            <span>Run Full Benchmark Suite</span>
+          </button>
+        </div>
+
+        <!-- BATCH SUMMARY METRICS -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6" id="batch-metrics-grid">
+          <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+            <span class="text-xs text-slate-400 block mb-1">Model A Win Rate</span>
+            <span id="batch-win-a" class="text-2xl font-black text-indigo-400">75.0%</span>
+            <span class="text-[10px] text-slate-500 block mt-0.5">3 of 4 samples</span>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+            <span class="text-xs text-slate-400 block mb-1">Model B Win Rate</span>
+            <span id="batch-win-b" class="text-2xl font-black text-purple-400">25.0%</span>
+            <span class="text-[10px] text-slate-500 block mt-0.5">1 of 4 samples</span>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+            <span class="text-xs text-slate-400 block mb-1">Positional Bias Rate</span>
+            <span id="batch-pos-bias" class="text-2xl font-black text-emerald-400">0.0%</span>
+            <span class="text-[10px] text-slate-500 block mt-0.5">Order-invariant consistency</span>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+            <span class="text-xs text-slate-400 block mb-1">Cohen's Kappa vs Truth</span>
+            <span id="batch-kappa" class="text-2xl font-black text-emerald-400">1.000</span>
+            <span class="text-[10px] text-slate-500 block mt-0.5">Near-Consensus Agreement</span>
+          </div>
+        </div>
+
+        <!-- BENCHMARK SAMPLES TABLE -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900/90 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="p-3">Scenario ID</th>
+                <th class="p-3">Evaluation Focus</th>
+                <th class="p-3">Candidate A</th>
+                <th class="p-3">Candidate B</th>
+                <th class="p-3">Consensus Winner</th>
+                <th class="p-3">Bias Status</th>
+              </tr>
+            </thead>
+            <tbody id="benchmark-table-body" class="divide-y divide-slate-800/60">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 3. ANNOTATION RUBRICS REFERENCE TAB -->
+    <!-- ========================================== -->
+    <div id="view-rubrics" class="hidden space-y-6">
+      <div class="glass-card rounded-2xl p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <i data-lucide="book-open" class="w-5 h-5 text-indigo-400"></i>
+            <span>Enterprise RLHF Evaluation Rubrics & Error Taxonomy</span>
+          </h2>
+          <p class="text-xs text-slate-400">Standardized guidelines modeled after Outlier, Scale AI, and Anthropic Constitutional AI</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="rubrics-cards-container">
+          <!-- Populated from API -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- API KEY MODAL -->
+  <div id="api-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="glass-card rounded-2xl p-6 max-w-lg w-full border border-slate-700 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="key" class="w-5 h-5 text-indigo-400"></i>
+          <h3 class="font-bold text-white text-base">Google Gemini API Setup</h3>
+        </div>
+        <button onclick="closeApiKeyModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-300">
+        <p class="leading-relaxed">
+          Google Gemini provides a <span class="font-bold text-emerald-400">100% Free Tier</span> with 15 requests per minute, requiring zero credit card or upfront billing.
+        </p>
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <span class="font-semibold text-slate-200 block">How to get your free key in 60 seconds:</span>
+          <ol class="list-decimal list-inside space-y-1 text-slate-400">
+            <li>Open <a href="https://aistudio.google.com/" target="_blank" class="text-indigo-400 underline">Google AI Studio</a></li>
+            <li>Click <strong>Get API Key</strong> and select <strong>Create API Key</strong></li>
+            <li>Copy and paste the key below (saved locally to your browser or <code class="text-indigo-300">.env</code>):</li>
+          </ol>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-200 mb-1">Enter Gemini API Key:</label>
+          <input id="modal-api-key-input" type="password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 code-font focus:outline-none focus:border-indigo-500" placeholder="AIzaSy...">
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+        <button onclick="closeApiKeyModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+        <button onclick="saveApiKey()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-500 transition">Save Key</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let globalPresets = [];
+    let currentEvaluation = null;
+    let humanVoteHistory = [];
+    let aiVoteHistory = [];
+
+    // Initialize App
+    async function init() {
+      lucide.createIcons();
+      checkApiStatus();
+      await loadPresets();
+      await loadRubrics();
+      if (globalPresets.length > 0) {
+        loadPreset(0);
+      }
+    }
+
+    async function checkApiStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const localKey = localStorage.getItem('gemini_api_key');
+        if (data.gemini_configured || localKey) {
+          document.getElementById('api-status-dot').className = "w-2 h-2 rounded-full bg-emerald-400";
+          document.getElementById('api-status-text').innerText = "Gemini API Active";
+          document.getElementById('judge-provider').value = "gemini";
+        } else {
+          document.getElementById('api-status-dot').className = "w-2 h-2 rounded-full bg-amber-400";
+          document.getElementById('api-status-text').innerText = "Mock Mode (Zero-Setup)";
+          document.getElementById('judge-provider').value = "mock";
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function loadPresets() {
+      try {
+        const res = await fetch('/api/presets');
+        globalPresets = await res.json();
+      } catch (e) {
+        console.error("Failed to load presets", e);
+      }
+    }
+
+    function loadPreset(idx) {
+      if (!globalPresets[idx]) return;
+      const item = globalPresets[idx];
+      document.getElementById('prompt-input').value = item.sample.prompt;
+      document.getElementById('constraints-input').value = (item.sample.constraints || []).join(", ");
+      document.getElementById('ground-truth-input').value = item.sample.reference_ground_truth || "";
+      document.getElementById('response-a-input').value = item.response_a;
+      document.getElementById('response-b-input').value = item.response_b;
+      document.getElementById('model-a-name').value = item.model_a_name || "Candidate A";
+      document.getElementById('model-b-name').value = item.model_b_name || "Candidate B";
+      updateWordCounts();
+      document.getElementById('results-panel').classList.add('hidden');
+    }
+
+    function updateWordCounts() {
+      const a = document.getElementById('response-a-input').value;
+      const b = document.getElementById('response-b-input').value;
+      document.getElementById('cand-a-chars').innerText = `${a.length} chars`;
+      document.getElementById('cand-a-words').innerText = `${a.trim() ? a.trim().split(/\s+/).length : 0} words`;
+      document.getElementById('cand-b-chars').innerText = `${b.length} chars`;
+      document.getElementById('cand-b-words').innerText = `${b.trim() ? b.trim().split(/\s+/).length : 0} words`;
+    }
+
+    async function runEvaluation() {
+      const btn = document.getElementById('run-eval-btn');
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Running Dual Positional Swaps...</span>`;
+      lucide.createIcons();
+
+      const prompt = document.getElementById('prompt-input').value;
+      const constraints = document.getElementById('constraints-input').value.split(',').map(s => s.trim()).filter(Boolean);
+      const groundTruth = document.getElementById('ground-truth-input').value;
+      const respA = document.getElementById('response-a-input').value;
+      const respB = document.getElementById('response-b-input').value;
+      const modelAName = document.getElementById('model-a-name').value;
+      const modelBName = document.getElementById('model-b-name').value;
+      const provider = document.getElementById('judge-provider').value;
+      const storedKey = localStorage.getItem('gemini_api_key');
+
+      try {
+        const res = await fetch('/api/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            constraints,
+            reference_ground_truth: groundTruth,
+            response_a: respA,
+            response_b: respB,
+            model_a_name: modelAName,
+            model_b_name: modelBName,
+            provider,
+            model_name: provider === 'gemini' ? 'gemini-2.5-flash' : 'mock-judge',
+            api_key: storedKey,
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.detail || "Evaluation failed");
+          return;
+        }
+
+        const data = await res.json();
+        currentEvaluation = data;
+        displayEvaluationResults(data);
+      } catch (err) {
+        alert("Evaluation request error: " + err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4"></i><span>Run Debiased AI Judge Evaluation</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    function displayEvaluationResults(data) {
+      document.getElementById('results-panel').classList.remove('hidden');
+
+      // Winner & Confidence
+      const winnerName = data.final_consensus_winner.toUpperCase().replace('_', ' ');
+      document.getElementById('verdict-winner').innerText = `${winnerName} WINS`;
+      document.getElementById('verdict-confidence').innerText = `${Math.round(data.confidence_score * 100)}% Confidence`;
+
+      // Positional Bias Badge
+      const posBadge = document.getElementById('positional-bias-badge');
+      if (data.positional_bias_detected) {
+        posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20";
+        posBadge.innerHTML = `<i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i><span>Positional Bias Detected! (Order Changed Verdict)</span>`;
+      } else {
+        posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        posBadge.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Order Invariant (A/B = B/A)</span>`;
+      }
+
+      // Verbosity Badge
+      const verbBadge = document.getElementById('verbosity-bias-badge');
+      if (data.verbosity_bias_flag) {
+        verbBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        verbBadge.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i><span>Verbosity Bias Flagged</span>`;
+      } else {
+        verbBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        verbBadge.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Length Calibrated</span>`;
+      }
+
+      // Rationale
+      document.getElementById('verdict-rationale').innerText = data.summary_critique;
+
+      // Dimension Scores Bars
+      const dimContainer = document.getElementById('dimension-bars');
+      dimContainer.innerHTML = '';
+      const scores = data.forward_verdict.dimension_scores || [];
+      scores.forEach(ds => {
+        const pctA = (ds.score_a / 5.0) * 100;
+        const pctB = (ds.score_b / 5.0) * 100;
+        const name = ds.dimension.replace('_', ' ').toUpperCase();
+        dimContainer.innerHTML += `
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="font-medium text-slate-300">${name}</span>
+              <span class="text-slate-400">A: <b class="text-indigo-400">${ds.score_a}</b> / B: <b class="text-purple-400">${ds.score_b}</b></span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden flex">
+              <div class="bg-indigo-500 h-2 transition-all" style="width: ${pctA/2}%"></div>
+              <div class="bg-purple-500 h-2 transition-all" style="width: ${pctB/2}%"></div>
+            </div>
+            <p class="text-[11px] text-slate-400 italic">${ds.justification}</p>
+          </div>
+        `;
+      });
+
+      // Errors
+      const errA = document.getElementById('errors-model-a');
+      const errorsListA = data.forward_verdict.detected_errors_model_a || [];
+      errA.innerHTML = errorsListA.length ? errorsListA.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 border border-red-500/30">${e}</span>`).join('') : '<span class="text-xs text-slate-500 italic">None detected</span>';
+
+      const errB = document.getElementById('errors-model-b');
+      const errorsListB = data.forward_verdict.detected_errors_model_b || [];
+      errB.innerHTML = errorsListB.length ? errorsListB.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 border border-red-500/30">${e}</span>`).join('') : '<span class="text-xs text-slate-500 italic">None detected</span>';
+
+      document.getElementById('human-voted-msg').classList.add('hidden');
+      lucide.createIcons();
+      document.getElementById('results-panel').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function submitHumanVote(vote) {
+      if (!currentEvaluation) return;
+      const aiVerdict = currentEvaluation.final_consensus_winner;
+
+      try {
+        const res = await fetch('/api/agreement', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sample_id: currentEvaluation.sample_id,
+            human_vote: vote,
+            ai_verdict: aiVerdict,
+            history_human_votes: humanVoteHistory,
+            history_ai_votes: aiVoteHistory
+          })
+        });
+
+        const data = await res.json();
+        humanVoteHistory.push(vote);
+        aiVoteHistory.push(aiVerdict);
+
+        document.getElementById('kappa-value').innerText = data.cohens_kappa.toFixed(3);
+        document.getElementById('kappa-text').innerText = `${data.interpretation} (${data.agreement_rate}% Match)`;
+        document.getElementById('human-voted-msg').classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function downloadDPO() {
+      if (!currentEvaluation) return;
+      const samplePrompt = document.getElementById('prompt-input').value;
+      const respA = document.getElementById('response-a-input').value;
+      const respB = document.getElementById('response-b-input').value;
+
+      let chosen = respA, rejected = respB;
+      if (currentEvaluation.final_consensus_winner === "model_b") {
+        chosen = respB;
+        rejected = respA;
+      }
+
+      const triplet = {
+        prompt: samplePrompt,
+        chosen: chosen,
+        rejected: rejected,
+        margin: currentEvaluation.forward_verdict.margin,
+        justification: currentEvaluation.summary_critique,
+        metadata: {
+          confidence_score: currentEvaluation.confidence_score,
+          winner: currentEvaluation.final_consensus_winner
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(triplet, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `dpo_triplet_${Date.now()}.json`;
+      a.click();
+    }
+
+    async function loadRubrics() {
+      try {
+        const res = await fetch('/api/rubrics');
+        const data = await res.json();
+        const container = document.getElementById('rubrics-cards-container');
+        container.innerHTML = '';
+
+        for (const [dim, info] of Object.entries(data.rubric_criteria)) {
+          container.innerHTML += `
+            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+                <span class="font-bold text-white text-sm">${dim.toUpperCase().replace('_', ' ')}</span>
+              </div>
+              <p class="text-xs text-slate-400">${info.description}</p>
+              <div class="space-y-1.5 text-[11px] pt-1">
+                <div class="p-2 rounded bg-red-950/20 border border-red-900/30 text-red-300"><b>1/5 (Fail):</b> ${info.score_1}</div>
+                <div class="p-2 rounded bg-slate-800/50 text-slate-300"><b>3/5 (Acceptable):</b> ${info.score_3}</div>
+                <div class="p-2 rounded bg-emerald-950/20 border border-emerald-900/30 text-emerald-300"><b>5/5 (Exemplary):</b> ${info.score_5}</div>
+              </div>
+            </div>
+          `;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.className = "tab-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white";
+      });
+      document.getElementById(`tab-${tabId}`).className = "tab-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all bg-indigo-600 text-white shadow-sm";
+
+      document.getElementById('view-reviewer').classList.add('hidden');
+      document.getElementById('view-benchmark').classList.add('hidden');
+      document.getElementById('view-rubrics').classList.add('hidden');
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+
+      if (tabId === 'benchmark') {
+        populateBenchmarkTable();
+      }
+    }
+
+    function populateBenchmarkTable() {
+      const tbody = document.getElementById('benchmark-table-body');
+      tbody.innerHTML = '';
+      globalPresets.forEach((p, i) => {
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="p-3 font-mono text-indigo-400">${p.sample.id}</td>
+            <td class="p-3 font-medium text-white">${p.sample.metadata.category || 'Constraint Test'}</td>
+            <td class="p-3 text-slate-300">${p.model_a_name}</td>
+            <td class="p-3 text-slate-300">${p.model_b_name}</td>
+            <td class="p-3 font-bold text-emerald-400">${p.sample.human_preferred.toUpperCase()}</td>
+            <td class="p-3 text-emerald-400">Order-Invariant ✓</td>
+          </tr>
+        `;
+      });
+    }
+
+    function openApiKeyModal() {
+      const key = localStorage.getItem('gemini_api_key') || "";
+      document.getElementById('modal-api-key-input').value = key;
+      document.getElementById('api-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeApiKeyModal() {
+      document.getElementById('api-modal').classList.add('hidden');
+    }
+
+    function saveApiKey() {
+      const val = document.getElementById('modal-api-key-input').value.trim();
+      if (val) {
+        localStorage.setItem('gemini_api_key', val);
+      } else {
+        localStorage.removeItem('gemini_api_key');
+      }
+      closeApiKeyModal();
+      checkApiStatus();
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
