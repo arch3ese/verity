@@ -75,8 +75,9 @@ def get_chat_model(
                 "GEMINI_API_KEY is not set. Please set it in your .env file or environment."
             )
         from langchain_google_genai import ChatGoogleGenerativeAI
+        actual_model = model_name if model_name and "gemini-3" in model_name else "gemini-3.8-flash"
         return ChatGoogleGenerativeAI(
-            model=model_name,
+            model=actual_model,
             google_api_key=api_key,
             temperature=temperature,
             **kwargs,

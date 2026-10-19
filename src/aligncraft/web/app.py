@@ -295,8 +295,8 @@ class EvaluationRequest(BaseModel):
     response_b: str
     model_a_name: str = "Candidate A"
     model_b_name: str = "Candidate B"
-    provider: str = "mock"
-    model_name: str = "mock-judge"
+    provider: str = "gemini"
+    model_name: str = "gemini-3.8-flash"
     api_key: Optional[str] = None
 
 
@@ -321,12 +321,14 @@ def serve_index():
 @app.get("/api/status")
 def get_status():
     """Returns environment status and API key detection."""
+    load_dotenv(override=True)
     gemini_key = os.getenv("GEMINI_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
     return {
         "gemini_configured": bool(gemini_key and len(gemini_key.strip()) > 5),
         "openai_configured": bool(openai_key and len(openai_key.strip()) > 5),
-        "default_provider": "gemini" if gemini_key else "mock",
+        "default_provider": "gemini",
+        "default_model": "gemini-3.8-flash",
     }
 
 
@@ -351,6 +353,7 @@ def get_rubrics():
 @app.post("/api/evaluate")
 def evaluate_pair(req: EvaluationRequest):
     """Executes a live debiased evaluation between Candidate A and Candidate B."""
+    load_dotenv(override=True)
     sample = PromptSample(
         id=f"sample-{abs(hash(req.prompt)) % 10000}",
         prompt=req.prompt,
@@ -360,23 +363,21 @@ def evaluate_pair(req: EvaluationRequest):
 
     # Initialize model
     provider = req.provider.strip().lower()
-    if provider == "mock":
-        chat_model = get_chat_model("mock", req.model_name, response_handler=content_aware_mock_handler)
-    elif provider in ["gemini", "google"]:
+    if provider in ["gemini", "google", ""]:
         api_key = req.api_key or os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise HTTPException(
                 status_code=400,
-                detail="Google Gemini API key not found. Please provide it or select Mock Test Mode.",
+                detail="Google Gemini API key not found. Please provide it in Settings.",
             )
-        chat_model = get_chat_model("gemini", req.model_name, api_key=api_key)
+        chat_model = get_chat_model("gemini", req.model_name or "gemini-3.8-flash", api_key=api_key)
     elif provider == "openai":
         api_key = req.api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise HTTPException(status_code=400, detail="OpenAI API key not found.")
         chat_model = get_chat_model("openai", req.model_name, api_key=api_key)
     else:
-        chat_model = get_chat_model("mock", "mock-judge", response_handler=content_aware_mock_handler)
+        chat_model = get_chat_model("gemini", "gemini-3.8-flash", api_key=os.getenv("GEMINI_API_KEY"))
 
     judge = PairwiseJudge(chat_model)
     debiaser = DebiasingJudge(judge)

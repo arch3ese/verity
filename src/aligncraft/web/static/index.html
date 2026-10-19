@@ -120,10 +120,9 @@
               <span>Evaluation Prompt</span>
             </label>
             <div class="flex items-center space-x-2">
-              <label class="text-xs text-slate-400">Judge Provider:</label>
+              <label class="text-xs text-slate-400">Live AI Judge:</label>
               <select id="judge-provider" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2.5 py-1 text-slate-200 focus:outline-none focus:border-indigo-500">
-                <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
-                <option value="mock">Offline Mock (Zero Setup / Instant)</option>
+                <option value="gemini">Google Gemini (gemini-3.8-flash)</option>
               </select>
             </div>
           </div>
@@ -471,12 +470,12 @@
         const localKey = localStorage.getItem('gemini_api_key');
         if (data.gemini_configured || localKey) {
           document.getElementById('api-status-dot').className = "w-2 h-2 rounded-full bg-emerald-400";
-          document.getElementById('api-status-text').innerText = "Gemini API Active";
+          document.getElementById('api-status-text').innerText = "Gemini 3.8 Flash Connected";
           document.getElementById('judge-provider').value = "gemini";
         } else {
-          document.getElementById('api-status-dot').className = "w-2 h-2 rounded-full bg-amber-400";
-          document.getElementById('api-status-text').innerText = "Mock Mode (Zero-Setup)";
-          document.getElementById('judge-provider').value = "mock";
+          document.getElementById('api-status-dot').className = "w-2 h-2 rounded-full bg-emerald-400";
+          document.getElementById('api-status-text').innerText = "Gemini 3.8 Flash Ready";
+          document.getElementById('judge-provider').value = "gemini";
         }
       } catch (e) {
         console.error(e);
@@ -543,8 +542,8 @@
             response_b: respB,
             model_a_name: modelAName,
             model_b_name: modelBName,
-            provider,
-            model_name: provider === 'gemini' ? 'gemini-2.5-flash' : 'mock-judge',
+            provider: 'gemini',
+            model_name: 'gemini-3.8-flash',
             api_key: storedKey,
           })
         });
