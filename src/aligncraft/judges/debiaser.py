@@ -36,19 +36,23 @@ class DebiasingJudge:
         Executes dual evaluation (Forward: A vs B, Reverse: B vs A)
         and computes consensus, positional consistency, and verbosity flags.
         """
-        # Pass 1: Forward (A is first, B is second)
-        forward_verdict = self.judge.evaluate_pair(
-            sample=sample,
-            response_a=response_a,
-            response_b=response_b,
-        )
-
-        # Pass 2: Reverse (B is first, A is second)
-        reverse_raw_verdict = self.judge.evaluate_pair(
-            sample=sample,
-            response_a=response_b,
-            response_b=response_a,
-        )
+        # Execute Pass 1 (Forward: A vs B) and Pass 2 (Reverse: B vs A) concurrently
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_forward = executor.submit(
+                self.judge.evaluate_pair,
+                sample=sample,
+                response_a=response_a,
+                response_b=response_b,
+            )
+            future_reverse = executor.submit(
+                self.judge.evaluate_pair,
+                sample=sample,
+                response_a=response_b,
+                response_b=response_a,
+            )
+            forward_verdict = future_forward.result()
+            reverse_raw_verdict = future_reverse.result()
 
         # In reverse pass:
         # If reverse verdict winner is 'model_a', that physically corresponded to response_b!
