@@ -4,7 +4,9 @@ Calculates Cohen's Kappa, Win Rates, and Bias Rates to benchmark LLM Judges
 against Human Ground Truth or between two different LLM Judges.
 """
 
-from typing import Dict, List, Optional, Tuple
+import math
+import warnings
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from aligncraft.schemas.models import (
     BenchmarkSummary,
@@ -13,43 +15,89 @@ from aligncraft.schemas.models import (
     PromptSample,
 )
 
+MIN_SAMPLE_SIZE: int = 10
+"""
+Minimum sample size threshold for calculating Inter-Annotator Agreement.
+Below this threshold, Cohen's Kappa score is statistically volatile and an explicit
+low-sample warning is attached to the interpretation.
+"""
+
 
 def calculate_cohens_kappa(
-    rater_a_labels: List[str],
-    rater_b_labels: List[str],
+    rater_a_labels: List[Any],
+    rater_b_labels: List[Any],
+    weights: Optional[str] = None,
+    min_sample_size: int = MIN_SAMPLE_SIZE,
 ) -> Tuple[float, str]:
     """
-    Computes Cohen's Kappa coefficient between two sets of categorical ratings.
-    Returns (kappa_score, qualitative_interpretation).
+    Computes Cohen's Kappa coefficient between two sets of ratings.
+
+    Supports:
+    - Categorical ratings (unweighted, weights=None)
+    - Ordinal ratings with linear weighting (weights='linear')
+    - Ordinal ratings with quadratic weighting (weights='quadratic')
+
+    Handles zero-variance inputs by returning (NaN, "Undefined: Zero variance across raters") (STAT-01).
+    Attaches an explicit low-sample warning if len(ratings) < min_sample_size (STAT-02).
     """
     if len(rater_a_labels) != len(rater_b_labels):
         raise ValueError("Both rating lists must have the same length.")
 
     if not rater_a_labels:
-        return 0.0, "No data"
+        return float("nan"), "No data"
 
-    categories = sorted(list(set(rater_a_labels) | set(rater_b_labels)))
+    if weights not in [None, "linear", "quadratic"]:
+        raise ValueError(f"Invalid weights: '{weights}'. Expected None, 'linear', or 'quadratic'.")
+
     n = len(rater_a_labels)
-    cat_to_idx = {cat: i for i, cat in enumerate(categories)}
+    categories = sorted(list(set(rater_a_labels) | set(rater_b_labels)))
     k = len(categories)
 
+    # Low sample warning helper
+    def _apply_sample_warning(interpretation: str) -> str:
+        if n < min_sample_size:
+            warnings.warn(
+                f"Low sample size: n={n} is below minimum recommended sample size {min_sample_size}.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return f"{interpretation} [Warning: Low sample size n={n} < {min_sample_size}]"
+        return interpretation
+
+    # STAT-01: Zero-variance input check
+    if k <= 1:
+        return float("nan"), _apply_sample_warning("Undefined: Zero variance across raters")
+
+    cat_to_idx = {cat: i for i, cat in enumerate(categories)}
+
     # Build confusion matrix
-    matrix = np.zeros((k, k), dtype=int)
+    conf = np.zeros((k, k), dtype=float)
     for a, b in zip(rater_a_labels, rater_b_labels):
-        matrix[cat_to_idx[a], cat_to_idx[b]] += 1
+        conf[cat_to_idx[a], cat_to_idx[b]] += 1.0
 
-    # Observed agreement (Po)
-    po = np.trace(matrix) / n
+    # Expected agreement by chance
+    row_sums = np.sum(conf, axis=1)
+    col_sums = np.sum(conf, axis=0)
+    expected = np.outer(row_sums, col_sums) / n
 
-    # Expected agreement by chance (Pe)
-    row_sums = np.sum(matrix, axis=1) / n
-    col_sums = np.sum(matrix, axis=0) / n
-    pe = np.sum(row_sums * col_sums)
+    # Construct weight matrix
+    if weights is None:
+        w_mat = np.ones((k, k), dtype=float)
+        np.fill_diagonal(w_mat, 0.0)
+    elif weights == "linear":
+        idx = np.arange(k, dtype=float)
+        w_mat = np.abs(idx[:, None] - idx[None, :])
+    elif weights == "quadratic":
+        idx = np.arange(k, dtype=float)
+        w_mat = (idx[:, None] - idx[None, :]) ** 2
 
-    if pe >= 1.0:
-        kappa = 1.0
-    else:
-        kappa = (po - pe) / (1.0 - pe)
+    numerator = np.sum(w_mat * conf)
+    denominator = np.sum(w_mat * expected)
+
+    if denominator == 0.0:
+        return float("nan"), _apply_sample_warning("Undefined: Zero variance across raters")
+
+    kappa = float(1.0 - (numerator / denominator))
 
     # Landis & Koch (1977) interpretation
     if kappa < 0.0:
@@ -65,7 +113,7 @@ def calculate_cohens_kappa(
     else:
         interp = "Almost Perfect Agreement"
 
-    return float(kappa), interp
+    return kappa, _apply_sample_warning(interp)
 
 
 def compute_benchmark_summary(
@@ -138,7 +186,7 @@ def compute_benchmark_summary(
     kappa_val = None
     if len(human_labels) >= 2:
         k_score, _ = calculate_cohens_kappa(judge_labels, human_labels)
-        kappa_val = k_score
+        kappa_val = None if (k_score is None or np.isnan(k_score)) else k_score
 
     return BenchmarkSummary(
         total_samples=total,

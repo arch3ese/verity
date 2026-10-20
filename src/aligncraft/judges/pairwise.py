@@ -22,6 +22,12 @@ from aligncraft.schemas.models import (
     RatingDimension,
 )
 
+
+class JudgeParseError(ValueError):
+    """Raised when model output cannot be parsed into a valid PairwiseVerdict (EVAL-03)."""
+    pass
+
+
 SYSTEM_PROMPT = f"""You are an elite AI Alignment Evaluator & Lead RLHF Annotator.
 Your mission is to strictly and objectively evaluate two model completions against explicit instructions, negative constraints, and factual standards.
 
@@ -267,26 +273,53 @@ Only return JSON. No introductory pleasantries."""
         sample: Optional[PromptSample] = None,
         use_human_calibration: bool = False,
     ) -> PairwiseVerdict:
-        """Robustly extracts JSON verdict from model response with markdown stripping, regex fallback, and programmatic guardrails."""
-        clean = text.strip()
-        if clean.startswith("```json"):
-            clean = clean[7:]
-        elif clean.startswith("```"):
-            clean = clean[3:]
-        if clean.endswith("```"):
-            clean = clean[:-3]
-        clean = clean.strip()
+        """
+        Robustly extracts JSON verdict from model response with markdown stripping,
+        regex extraction, refusal/truncation detection, and programmatic guardrails (EVAL-03).
+        Never produces a confident verdict from a parse failure.
+        """
+        if not text or not text.strip():
+            raise JudgeParseError("Model output was empty or whitespace. Cannot parse verdict.")
+
+        # Check for explicit model refusal signatures
+        clean_lower = text.strip().lower()
+        refusal_signatures = [
+            "i cannot fulfill", "i am unable to", "i apologize, but i cannot",
+            "as an ai, i cannot", "against my safety policies", "i refuse",
+            "policy prevents me"
+        ]
+        if any(sig in clean_lower for sig in refusal_signatures) and "{" not in text:
+            raise JudgeParseError(f"Model generation is a refusal and contains no verdict: {text[:200]!r}")
 
         verdict = None
-        try:
-            data = json.loads(clean)
-            verdict = PairwiseVerdict.model_validate(data)
-        except Exception:
-            pass
 
+        # Strategy 1: Check for fenced code block ```json ... ``` or ``` ... ```
+        fence_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+        if fence_match:
+            try:
+                data = json.loads(fence_match.group(1))
+                verdict = PairwiseVerdict.model_validate(data)
+            except Exception:
+                pass
+
+        # Strategy 2: Direct json.loads on stripped text with fence stripping
         if not verdict:
-            # Try regex search for outermost {...} block
-            import re
+            clean = text.strip()
+            if clean.startswith("```json"):
+                clean = clean[7:]
+            elif clean.startswith("```"):
+                clean = clean[3:]
+            if clean.endswith("```"):
+                clean = clean[:-3]
+            clean = clean.strip()
+            try:
+                data = json.loads(clean)
+                verdict = PairwiseVerdict.model_validate(data)
+            except Exception:
+                pass
+
+        # Strategy 3: Regex search for outermost {...} block
+        if not verdict:
             match = re.search(r'\{.*\}', text, re.DOTALL)
             if match:
                 try:
@@ -295,23 +328,12 @@ Only return JSON. No introductory pleasantries."""
                 except Exception:
                     pass
 
+        # Fail with clear error on truncated or unparseable output; never produce a confident verdict
         if not verdict:
-            # Fallback if parsing fails or invalid keys
-            verdict = PairwiseVerdict(
-                winner=PreferenceChoice.TIE,
-                margin="slight",
-                overall_reasoning=f"Automated parsing fallback. Raw output:\n{text[:400]}",
-                dimension_scores=[
-                    DimensionScore(
-                        dimension=RatingDimension.INSTRUCTION_FOLLOWING,
-                        score_a=3.0,
-                        score_b=3.0,
-                        justification="Fallback assignment"
-                    )
-                ],
-                detected_errors_model_a=[],
-                detected_errors_model_b=[]
-            )
+            is_truncated = ("{" in text and "}" not in text) or text.strip().endswith(("...", "{", ":", ',"', '",', "["))
+            if is_truncated:
+                raise JudgeParseError(f"Model generation was truncated and incomplete: {text[-100:]!r}")
+            raise JudgeParseError(f"Failed to parse valid judge verdict from model output: {text[:200]!r}")
 
         verdict.raw_winner = verdict.winner
         # Always run verification guardrails for tie-avoidance, vetoes, and tier disagreement

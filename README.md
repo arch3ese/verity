@@ -1,25 +1,30 @@
-# AlignCraft: Enterprise RLHF & AI Training Evaluation Engine
+# AlignCraft: LLM Judge Debiasing, Rubric Alignment & Dataset Exporter
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-v0.3+-green.svg)](https://www.langchain.com/)
-[![Tests](https://img.shields.io/badge/tests-13%20passed-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **A production-grade RLHF, RLAIF, and DPO Evaluation Harness built to benchmark LLM alignment, detect judge biases, measure Inter-Annotator Agreement (Cohen's Kappa), and curate high-confidence training datasets.**
+> **A research and evaluation toolkit for LLM-as-a-judge debiasing, programmatic constraint verification, human annotator calibration, and DPO training dataset export.**
 
 ---
 
-## 🎯 Why AlignCraft? (The Demand-First Approach)
+## ⚠️ Security Notice & Operational Scope
 
-95% of candidates applying for AI Training, Model Quality, and Evaluation Engineer roles at companies like **Mercor, Outlier, Alignerr, DataAnnotation.tech, and Shipd AI** showcase basic RAG chatbots or generic prompt wrappers. 
+**No Authentication:** AlignCraft Studio and its FastAPI backend are designed for local evaluation, CI testing, and offline researcher workflows. The server includes **no built-in user authentication, role-based access control, or rate limiting**. Do not expose this server to the public Internet without an authenticating reverse proxy (e.g., NGINX, Cloudflare Access) and TLS encryption.
 
-However, top AI labs and high-paying evaluation platforms test for completely different competencies:
-* **Can you enforce strict multi-dimensional annotation rubrics?** (Negative constraints, factuality, formal logic)
-* **Do you understand LLM judge vulnerabilities?** (Positional bias, verbosity bias, sycophancy)
-* **Can you statistically measure consensus?** (Inter-Annotator Agreement via Cohen's Kappa)
-* **Can you turn raw evaluations into fine-tuning datasets?** (Direct Preference Optimization - DPO)
+**Judge Accuracy Disclaimer:** AlignCraft's judge and debiasing engine have **not been benchmarked against standard public leaderboards** (such as MT-Bench, AlpacaEval, or LMSYS Chatbot Arena). The framework implements defensive mechanisms against known judge pathologies (positional preference, verbosity inflation, negative constraint tokenization blindness), but real-world accuracy depends heavily on the underlying model and task domain.
 
-**AlignCraft** was built from the ground up to address these exact enterprise alignment challenges.
+---
+
+## 🎯 What AlignCraft Solves
+
+LLM-as-a-judge pipelines are notoriously vulnerable to subtle biases:
+1. **Positional Bias (First-Position Effect):** Judges systematically favor whichever candidate is presented first in the prompt.
+2. **Verbosity Bias:** Judges disproportionately award higher scores to longer, wordier responses even when they contain fluff or hallucinations.
+3. **Tokenization Blindness:** LLMs struggle to enforce negative constraints (e.g. *"do not use the letter 'e'"*) or count-based formatting because BPE tokenizers split words into multi-letter subwords.
+4. **Style Hallucination:** Eloquent phrasing frequently tricks judges into overlooking factual inaccuracies.
+
+AlignCraft combines **programmatic neuro-symbolic verification** (regex, lipogram analysis, length tracking) with **dual-order presentation swapping** ($A \text{ vs } B$ and $B \text{ vs } A$) and **hierarchical 5-tier rubrics** to detect and flag these failure modes.
 
 ---
 
@@ -27,139 +32,144 @@ However, top AI labs and high-paying evaluation platforms test for completely di
 
 ```mermaid
 graph TD
-    subgraph Data Intake
-        P[Benchmark Prompts / Multi-Turn Tasks] --> GEN[Dual Model Generator]
-        GEN --> M_A[Model A: Target / Local Model]
-        GEN --> M_B[Model B: Baseline / Rival Model]
+    subgraph Input Prompts & Candidates
+        P[Prompt + Constraints] --> A[Candidate Response A]
+        P --> B[Candidate Response B]
     end
 
-    subgraph Multi-Dimensional Rubric Engine
-        M_A --> EVAL[LangChain Rubric Evaluator]
-        M_B --> EVAL
-        EVAL --> DIM1[1. Instruction Following & Negative Constraints]
-        EVAL --> DIM2[2. Factuality & Hallucination Spotting]
-        EVAL --> DIM3[3. Formal Reasoning & Deductive Logic]
-        EVAL --> DIM4[4. Safety & Non-Overrefusal]
-        EVAL --> DIM5[5. Conciseness & Sycophancy Resistance]
+    subgraph Deterministic Rule Verification
+        A & B --> RV[RuleVerifier: Regex & Telemetry]
+        RV --> TEL[Constraint Violations & Noise Detection]
     end
 
-    subgraph Calibration & Debiasing Engine
-        EVAL --> DEBIAS[Debiasing Harness]
-        DEBIAS --> SWAP[Positional Swap: Order Invariance A/B vs B/A]
-        DEBIAS --> VERB[Verbosity Bias Normalizer]
+    subgraph Dual-Order Debiasing Judge
+        A & B & TEL --> FWD[Forward Pass: A vs B]
+        A & B & TEL --> REV[Reverse Pass: B vs A]
+        FWD & REV --> CONS[Consensus & Drift Engine]
     end
 
-    subgraph Statistical Verification & Output
-        DEBIAS --> IAA[Inter-Judge / Inter-Annotator Agreement]
-        IAA --> KAPPA[Cohen's Kappa vs Human Ground Truth]
-        DEBIAS --> TAX[Fine-Grained Error Taxonomy Classifier]
-        DEBIAS --> OUT_DPO[HuggingFace DPO Dataset: prompt, chosen, rejected]
-        DEBIAS --> OUT_AUDIT[Annotator & Model Audit Report: CLI / HTML]
+    subgraph Calibration & Veto Guardrails
+        CONS --> VETO[Tier 1 Safety & Tier 2 Hard Negative Veto]
+        CONS --> CAL[In-Context GuidelineBank Calibration]
+        VETO --> RES[Final Consensus: Model A / Model B / Tie / Indeterminate]
     end
+
+    subgraph Downstream Artifacts
+        RES --> DPO[DPO Preference Triplets JSONL]
+        RES --> STATS[Cohen's Kappa vs Human Ground Truth]
 ```
 
 ---
 
-## ✨ Key Features
+## ✨ Core Components
 
-### 1. Multi-Dimensional RLHF Rubric Grading
-Evaluates responses on a normalized 1.0–5.0 scale across 5 core dimensions modeled on actual industry annotation standards:
-1. **Instruction Following**: Strict verification of positive constraints, negative constraints (e.g., *"do not mention the letter 'e'"*), and length limits.
-2. **Factuality**: Verification against reference ground truth and historical counterfactuals (e.g., catching Apollo 19 hallucinations).
-3. **Reasoning & Logic**: Detection of non-sequiturs, mathematical fallacies, and circular logic.
-4. **Safety & Harmlessness**: Non-preachy safety compliance without over-refusal of benign prompts.
-5. **Style & Conciseness**: Zero tolerance for sycophancy, excessive boilerplate, or conversational filler.
+### 1. Positional Debiasing Engine (`DebiasingJudge`)
+Executes evaluations in both forward ($A \text{ vs } B$) and reverse ($B \text{ vs } A$) presentation orders concurrently:
+- If the model's preference flips purely due to presentation order, the evaluation is marked with `positional_bias_detected = True` and downgraded to `INDETERMINATE`.
+- If mean absolute rubric score drift exceeds `POSITIONAL_SCORE_DRIFT_THRESHOLD` (0.8 on 1–5 scale), positional drift is flagged even if the categorical winner did not invert.
 
-### 2. Positional Bias Mitigation ($A \text{ vs } B \leftrightarrow B \text{ vs } A$)
-LLM judges frequently suffer from **first-position bias** (voting for Candidate A simply because it was presented first). 
-AlignCraft executes a **dual-order swap**:
-* **Forward Pass**: Evaluates Candidate A first, Candidate B second.
-* **Reverse Pass**: Inverts the order (Candidate B first, Candidate A second).
-* If the judge flips preference purely due to order, the verdict is flagged with `positional_bias_detected = True` and categorized as `INDETERMINATE`.
+### 2. Programmatic Constraint Verification (`RuleVerifier`)
+Deterministic Python telemetry analyzes candidate text prior to LLM invocation:
+- Forbidden letter/word counts (case-insensitive with word-boundary awareness).
+- Sentence count, word count, character count.
+- Non-lexical noise and semantic void detection.
+- Telemetry is injected into the LLM judge prompt, preventing tokenizer hallucination.
 
-### 3. Verbosity Bias Detection
-Detects when a model wins simply because its output is $>2\times$ longer, despite having equal or lower factual grounding or instruction adherence.
+### 3. Tiered Rubric Priority & Critical Veto
+Evaluates candidates across 5 standardized dimensions:
+1. **Tier 1 (Safety & Harm):** Weight 5.0. Actionable harm triggers an absolute veto disqualifying the candidate regardless of formatting.
+2. **Tier 2 (Instruction Following & Negative Constraints):** Weight 4.0. Core adherence and negative rule compliance.
+3. **Tier 3 (Factuality):** Weight 3.0. Grounded truth outranks style.
+4. **Tier 4 (Reasoning & Logic):** Weight 2.0. Deductive coherence.
+5. **Tier 5 (Style, Tone & Conciseness):** Weight 0.5. Secondary tiebreaker only.
 
-### 4. Inter-Annotator Agreement (Cohen's Kappa $\kappa$)
-Calculates statistical agreement between automated LLM judges and Human Annotator ground truth:
-$$\kappa = \frac{P_o - P_e}{1 - P_e}$$
-Interpreted using the standard Landis & Koch (1977) scale (Slight, Moderate, Substantial, or Near-Consensus agreement).
+### 4. Statistical Agreement Metrics (`calculate_cohens_kappa`)
+- **Unweighted Cohen's Kappa:** Categorical agreement for winner labels.
+- **Weighted Cohen's Kappa:** Linear and Quadratic weights for ordinal rubric scores, mathematically validated against `scikit-learn`.
+- **Zero-Variance Handling:** Returns `NaN` with `"Undefined: Zero variance across raters"` rather than an incorrect 1.0.
+- **Sample Size Warning:** Emits an explicit low-sample warning when $N < 10$ (`MIN_SAMPLE_SIZE`).
 
-### 5. Direct DPO / SFT Dataset Exporter
-Directly outputs filtered, high-confidence triplets formatted for **Hugging Face TRL** (`DPOTrainer`) in standard JSONL:
-```json
-{
-  "prompt": "Write a 3-sentence summary of photosynthesis without the letter 'e'.",
-  "chosen": "Plants trap sunlight to build vital nutrition. Flora pumps out oxygen which all animals drink into lungs. Without flora, living worlds vanish.",
-  "rejected": "Photosynthesis is crucial because plants turn sunlight into energy. It produces oxygen that animals need to breathe. Without it, life on Earth cannot exist.",
-  "margin": "decisive",
-  "justification": "Winner strictly adhered to the negative constraint (zero letter 'e' occurrences).",
-  "metadata": {
-    "confidence_score": 0.95,
-    "detected_errors_loser": ["negative_constraint_violation"]
-  }
-}
-```
+### 5. Atomic In-Context Calibration (`GuidelineBank`)
+- Stores gold-standard human annotator overrides and rationale.
+- Thread-safe persistence uses file-level locking (`threading.RLock`) and atomic writes (`tempfile` + `os.replace`) to eliminate race conditions and partial-write corruption.
+
+---
+
+## 📡 REST API Reference
+
+AlignCraft Studio runs as a FastAPI service on port 8000:
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/` | Serves the interactive macOS-styled dark Studio UI. |
+| `GET` | `/api/status` | Returns availability of configured model providers (Gemini, OpenAI, Ollama). |
+| `GET` | `/api/presets` | Returns bundled benchmark evaluation prompt pairs from `sample_prompts.json`. |
+| `GET` | `/api/rubrics` | Returns the 5 evaluation criteria, priority weights, and error taxonomy. |
+| `GET` | `/api/guidelines` | Returns currently active human alignment calibration exemplars. |
+| `POST` | `/api/evaluate` | Executes a debiased dual-order evaluation between Candidate A and Candidate B. |
+| `POST` | `/api/generate-candidate` | Generates a completion using a selected LLM provider. |
+| `POST` | `/api/vote` | Records a quick human vote and returns updated agreement rate. |
+| `POST` | `/api/audit` | Submits a senior human rubric audit, appends calibration guideline, and exports DPO triplet. |
+| `POST` | `/api/agreement` | Computes live Cohen's Kappa score between annotator votes and AI judge votes. |
 
 ---
 
 ## 🚀 Quickstart
 
 ### 1. Installation
-Clone the repository and install dependencies in a virtual environment:
 ```bash
 git clone https://github.com/yourusername/aligncraft.git
 cd aligncraft
 
 # Create virtual environment
 python -m venv .venv
-# On Windows:
+
+# Activate virtual environment
+# Windows:
 .\.venv\Scripts\activate
-# On Linux/macOS:
+# Linux/macOS:
 source .venv/bin/activate
 
-# Install dependencies and package in editable mode
+# Install package and dependencies
 pip install -r requirements.txt
 pip install -e .
 ```
 
-### 2. Run the End-to-End Demo
-Run the bundled benchmark demonstration:
+### 2. Configure Environment Variables
+Copy `.env.example` to `.env`:
+```env
+# Cloud Providers
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Local Provider
+OLLAMA_BASE_URL=http://localhost:11434
+
+# AlignCraft Configuration (Optional)
+ALIGN_DEFAULT_MODEL=gemini-3.5-flash-lite
+ALIGN_FALLBACK_MODELS=gemini-flash-lite-latest,gemini-3.8-flash
+ALIGN_TEMPERATURE=0.0
+ALIGN_MAX_PROMPT_LENGTH=50000
+ALIGN_MAX_RESPONSE_LENGTH=100000
+ALIGN_CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+```
+
+### 3. Launch Web Studio
 ```bash
-python examples/demo_run.py
+aligncraft ui
 ```
-**Example Output:**
-```text
-=====================================================
-       AlignCraft: RLHF & AI Training Evaluation      
-=====================================================
-
-Loading benchmark dataset from: sample_prompts.json
-Executing debiased pairwise evaluations...
-  Evaluating 4 samples... ---------------------------------------- 100%
-
-Benchmark Evaluation Results:
-- Total Test Cases: 4
-- Llama-3.2-FineTuned Win Rate: 3/4 (75.0%)
-- Generic Baseline Win Rate: 1/4 (25.0%)
-- Positional Inconsistency Rate: 0.0%
-- Verbosity Bias Rate: 0.0%
-- Cohen's Kappa vs Human Ground Truth: 1.000 (Near-Consensus Agreement)
-
-Successfully curated and exported 4 DPO triplets to: data/exports/dpo_curated.jsonl
-Saved benchmark metrics to: eval_results/benchmark_summary.json
-```
+Open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ---
 
 ## 🛠️ CLI Reference
 
-### 1. View Evaluation Rubrics & Error Taxonomy
+### View Rubrics and Taxonomy
 ```bash
 aligncraft rubrics
 ```
 
-### 2. Run an Instant Audit on a Prompt & Two Responses
+### Run an Instant Pairwise Audit
 ```bash
 aligncraft audit \
   --prompt "What is 13 * 17?" \
@@ -169,59 +179,40 @@ aligncraft audit \
   --model mock-judge
 ```
 
-### 3. Run a Benchmark Suite with DPO Export
+### Batch Benchmark Execution & DPO Export
 ```bash
 aligncraft benchmark \
   --dataset examples/sample_prompts.json \
-  --provider gemini \
-  --model gemini-2.5-flash \
+  --provider mock \
+  --model mock-judge \
   --export-dpo data/exports/dpo_curated.jsonl \
   --export-summary eval_results/summary.json
 ```
 
+### Run Scaffold Evaluation Harness
+```bash
+python scripts/eval_harness.py --csv data/eval_placeholder.csv --provider mock
+```
+
 ---
 
-## 🧪 Running Unit Tests
+## 🧪 Test Suite
 
-The test suite covers schema validation, rubric integrity, debiasing logic (order swaps and verbosity flags), and Cohen's Kappa calculations:
+Run the full automated test suite (including unit tests, concurrency tests, and Playwright browser tests):
 ```bash
 pytest -v
 ```
-```text
-tests/test_agreement.py::test_cohens_kappa_perfect_agreement PASSED
-tests/test_agreement.py::test_cohens_kappa_worse_than_chance PASSED
-tests/test_agreement.py::test_benchmark_summary_aggregation PASSED
-tests/test_debiaser.py::test_debiaser_order_invariant_consensus PASSED
-tests/test_debiaser.py::test_debiaser_detects_positional_bias PASSED
-tests/test_debiaser.py::test_verbosity_bias_flag PASSED
-tests/test_rubrics.py::test_rubric_criteria_completeness PASSED
-tests/test_rubrics.py::test_error_taxonomy_completeness PASSED
-tests/test_schemas.py::test_prompt_sample_creation PASSED
-tests/test_schemas.py::test_dpo_triplet_serialization PASSED
-============================= 13 passed in 0.43s ==============================
-```
 
----
-
-## 💡 Provider Configuration (Hybrid Support)
-
-AlignCraft supports cloud providers (Google Gemini, OpenAI, Claude) and local instances (Ollama):
-
-Create a `.env` file from the template:
-```bash
-cp .env.example .env
-```
-Populate your relevant keys:
-```env
-# Google Gemini (Default recommended cloud provider)
-GEMINI_API_KEY=your_key_here
-
-# OpenAI
-OPENAI_API_KEY=your_key_here
-
-# Ollama (Local open-source models)
-OLLAMA_BASE_URL=http://localhost:11434
-```
+Test coverage includes:
+- **`test_agreement.py` & `test_agreement_stat_fixes.py`:** Unweighted, linear, and quadratic Cohen's Kappa, zero-variance handling, sample size warnings.
+- **`test_factory_and_models.py`:** Model ID configurability, temperature parameter forwarding, 404 error handling.
+- **`test_guidelines_concurrency.py`:** 20-thread concurrent writes with atomic temp-file replace and zero data loss.
+- **`test_api_hardening.py`:** Pydantic length bounds, sanitized 500 error handlers, explicit CORS origin validation.
+- **`test_ui_polish.py`:** SVG checkmarks, ARIA popover accessibility, and keyboard navigation.
+- **`test_parser_robustness.py`:** Markdown code fences, trailing text, refusals, empty bodies, and truncation.
+- **`test_debiaser.py`:** Order invariance, positional bias detection, verbosity penalties.
+- **`test_rule_verifier.py` & `test_rule_verifier_hardening.py`:** Deterministic constraint and negative rule verification.
+- **`test_prompt_injection.py`:** Candidate tag isolation and header escaping.
 
 ---
 
@@ -229,26 +220,40 @@ OLLAMA_BASE_URL=http://localhost:11434
 
 ```text
 delightful-maxwell/
-├── pyproject.toml              # Build & package configuration
-├── requirements.txt            # Project dependencies
-├── README.md                   # Project documentation
-├── .env.example                # Environment variable template
+├── pyproject.toml              # Package build configuration & metadata
+├── requirements.txt            # Python dependencies
+├── README.md                   # Documentation, API reference, & known limitations
+├── .env.example                # Environment variable configuration template
 ├── src/aligncraft/
-│   ├── schemas/                # Pydantic data models (Prompts, Rubrics, DPO triplets)
-│   ├── models/                 # Unified LangChain Model Factory (Gemini, OpenAI, Ollama, Mock)
-│   ├── rubrics/                # RLHF evaluation criteria & error taxonomy
-│   ├── judges/                 # Pairwise judge & positional debiasing engine
-│   ├── stats/                  # Cohen's Kappa & statistical agreement metrics
-│   ├── exporters/              # DPO & SFT dataset export (HuggingFace TRL format)
-│   ├── runner.py               # Batch evaluation orchestration
-│   └── cli.py                  # Rich interactive CLI commands
-├── tests/                      # Full pytest test suite
-└── examples/
-    ├── sample_prompts.json     # Adversarial & constraint-heavy evaluation benchmark
-    └── demo_run.py             # End-to-end demonstration script
+│   ├── alignment/              # GuidelineBank (few-shot exemplars & atomic writes)
+│   ├── exporters/              # DPO triplet export for fine-tuning
+│   ├── judges/                 # Pairwise judge, RuleVerifier, & DebiasingJudge
+│   ├── models/                 # Unified model factory (Gemini, OpenAI, Ollama, Mock)
+│   ├── rubrics/                # 5-tier evaluation dimensions & priority hierarchy
+│   ├── schemas/                # Pydantic domain models
+│   ├── stats/                  # Cohen's Kappa (unweighted, linear, quadratic) & IAA
+│   ├── web/                    # FastAPI server & static web studio interface
+│   ├── runner.py               # Batch evaluation runner
+│   └── cli.py                  # Typer CLI commands (ui, rubrics, audit, benchmark)
+├── scripts/
+│   ├── list_models.py          # Google GenAI model discovery & ID resolution audit
+│   └── eval_harness.py         # CSV evaluation harness scaffold
+├── tests/                      # Full pytest test suite (89+ tests)
+├── data/                       # Guidelines & export files
+└── examples/                   # Sample prompts & demo script
 ```
 
 ---
 
+## 🔍 Known Limitations
+
+1. **Heuristic Rubric Weights:** The 5-tier priority weights (`Safety=5.0`, `Instruction=4.0`, `Factuality=3.0`, `Logic=2.0`, `Style=0.5`) reflect curated human guidelines rather than empirical loss gradients.
+2. **Exact Override Matching:** Human annotator overrides in `GuidelineBank` match prompts via normalized string equality rather than dense semantic embeddings.
+3. **Single-Node File Locking:** `GuidelineBank` persistence relies on in-process `threading.RLock` and local filesystem `os.replace`. It is not suitable for horizontally scaled multi-worker deployments without an external SQL database.
+4. **Judge Non-Determinism:** While setting `temperature=0.0` produces consistent results on standard chat models, reasoning models (e.g. models with chain-of-thought) may exhibit minor stochastic variation across identical prompts.
+5. **Payload Bounds:** Prompts are restricted to 50,000 characters and completions to 100,000 characters to prevent memory exhaustion.
+
+---
+
 ## 📄 License
-MIT License. Created for AI Evaluation, RLHF, and Alignment Engineering portfolio demonstrations.
+MIT License.

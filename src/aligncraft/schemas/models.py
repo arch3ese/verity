@@ -2,9 +2,13 @@
 Core data schemas and Pydantic models for RLHF, RLAIF, and AI Training evaluation.
 """
 
+import os
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
+
+MAX_PROMPT_LENGTH: int = int(os.getenv("ALIGN_MAX_PROMPT_LENGTH", "50000"))
+MAX_RESPONSE_LENGTH: int = int(os.getenv("ALIGN_MAX_RESPONSE_LENGTH", "100000"))
 
 
 class RatingDimension(str, Enum):
@@ -40,7 +44,7 @@ class PreferenceChoice(str, Enum):
 class PromptSample(BaseModel):
     """A benchmark test case or evaluation sample."""
     id: str
-    prompt: str
+    prompt: str = Field(..., max_length=MAX_PROMPT_LENGTH)
     system_prompt: Optional[str] = None
     constraints: List[str] = Field(default_factory=list, description="Explicit hard or negative constraints")
     reference_ground_truth: Optional[str] = None
@@ -173,9 +177,9 @@ class HumanRubricAudit(BaseModel):
 class DetailedHumanAuditRequest(BaseModel):
     """Complete human annotator audit payload including multi-rubric grading and feedback."""
     sample_id: str
-    prompt: str
-    response_a: str
-    response_b: str
+    prompt: str = Field(..., max_length=MAX_PROMPT_LENGTH)
+    response_a: str = Field(..., max_length=MAX_RESPONSE_LENGTH)
+    response_b: str = Field(..., max_length=MAX_RESPONSE_LENGTH)
     model_a_name: str = "Candidate A"
     model_b_name: str = "Candidate B"
     human_overall_winner: PreferenceChoice

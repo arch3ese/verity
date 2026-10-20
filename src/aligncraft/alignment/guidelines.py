@@ -6,6 +6,8 @@ LLM Judges via In-Context Learning (Few-Shot Alignment).
 
 import json
 import os
+import tempfile
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
@@ -63,20 +65,48 @@ DEFAULT_ALIGNMENT_GUIDELINES: List[AlignmentGuideline] = [
 class GuidelineBank:
     """Manages persistent human alignment guidelines and few-shot calibration prompts."""
 
+    _lock = threading.RLock()
+
+    @classmethod
+    def _write_atomically(cls, target_file: Path, data: List[Dict[str, Any]]) -> None:
+        """
+        Atomically writes guidelines JSON data via write-to-temp and os.replace (CAL-02).
+        Guarantees that readers never observe partially written or corrupted files.
+        """
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp_fd, tmp_path_str = tempfile.mkstemp(
+            prefix="guidelines_tmp_",
+            suffix=".json",
+            dir=str(target_file.parent),
+        )
+        try:
+            with open(tmp_fd, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path_str, str(target_file))
+        except Exception:
+            if os.path.exists(tmp_path_str):
+                try:
+                    os.remove(tmp_path_str)
+                except OSError:
+                    pass
+            raise
+
     @classmethod
     def _ensure_initialized(cls) -> List[Dict[str, Any]]:
-        GUIDELINES_FILE.parent.mkdir(parents=True, exist_ok=True)
-        if not GUIDELINES_FILE.exists():
-            initial_data = [g.model_dump() for g in DEFAULT_ALIGNMENT_GUIDELINES]
-            with open(GUIDELINES_FILE, "w", encoding="utf-8") as f:
-                json.dump(initial_data, f, indent=2)
-            return initial_data
+        with cls._lock:
+            GUIDELINES_FILE.parent.mkdir(parents=True, exist_ok=True)
+            if not GUIDELINES_FILE.exists():
+                initial_data = [g.model_dump() for g in DEFAULT_ALIGNMENT_GUIDELINES]
+                cls._write_atomically(GUIDELINES_FILE, initial_data)
+                return initial_data
 
-        try:
-            with open(GUIDELINES_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return [g.model_dump() for g in DEFAULT_ALIGNMENT_GUIDELINES]
+            try:
+                with open(GUIDELINES_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                return [g.model_dump() for g in DEFAULT_ALIGNMENT_GUIDELINES]
 
     @classmethod
     def get_all_guidelines(cls) -> List[Dict[str, Any]]:
@@ -143,24 +173,24 @@ class GuidelineBank:
         rejected_response: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Records a human annotator's rationale as a new active alignment rule."""
-        guidelines = cls._ensure_initialized()
-        new_id = f"guide-human-{len(guidelines) + 1:03d}"
-        new_item = {
-            "id": new_id,
-            "scenario_focus": scenario_focus,
-            "prompt": prompt.strip(),
-            "constraints": constraints,
-            "human_preferred_winner": human_winner,
-            "annotator_rationale": annotator_rationale,
-            "key_alignment_rule": f"Annotator Calibration: {annotator_rationale[:200]}",
-            "preferred_response": preferred_response.strip() if preferred_response else None,
-            "rejected_response": rejected_response.strip() if rejected_response else None,
-            "is_active": True
-        }
-        guidelines.append(new_item)
-        with open(GUIDELINES_FILE, "w", encoding="utf-8") as f:
-            json.dump(guidelines, f, indent=2)
-        return new_item
+        with cls._lock:
+            guidelines = cls._ensure_initialized()
+            new_id = f"guide-human-{len(guidelines) + 1:03d}"
+            new_item = {
+                "id": new_id,
+                "scenario_focus": scenario_focus,
+                "prompt": prompt.strip(),
+                "constraints": constraints,
+                "human_preferred_winner": human_winner,
+                "annotator_rationale": annotator_rationale,
+                "key_alignment_rule": f"Annotator Calibration: {annotator_rationale[:200]}",
+                "preferred_response": preferred_response.strip() if preferred_response else None,
+                "rejected_response": rejected_response.strip() if rejected_response else None,
+                "is_active": True
+            }
+            guidelines.append(new_item)
+            cls._write_atomically(GUIDELINES_FILE, guidelines)
+            return new_item
 
     @classmethod
     def format_calibration_prompt(

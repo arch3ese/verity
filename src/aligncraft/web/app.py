@@ -5,6 +5,7 @@ and benchmark analytics.
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -12,7 +13,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from aligncraft.alignment.guidelines import GuidelineBank
 from aligncraft.exporters.dpo_exporter import DPOExporter
@@ -26,6 +27,8 @@ from aligncraft.rubrics.definitions import (
 )
 from aligncraft.runner import EvaluationRunner
 from aligncraft.schemas.models import (
+    MAX_PROMPT_LENGTH,
+    MAX_RESPONSE_LENGTH,
     DebiasedEvaluation,
     DetailedHumanAuditRequest,
     DPOTriplet,
@@ -38,19 +41,38 @@ from aligncraft.stats.agreement import calculate_cohens_kappa, compute_benchmark
 
 load_dotenv()
 
+logger = logging.getLogger("aligncraft.web.app")
+
 app = FastAPI(
     title="AlignCraft Studio API",
     description="Backend API for RLHF & AI Training Evaluation Studio",
     version="0.1.0",
 )
 
+# Configurable explicit CORS origins (API-03: wildcard + credentials disallowed)
+raw_cors = os.getenv(
+    "ALIGN_CORS_ORIGINS",
+    "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:3000"
+)
+ALLOWED_CORS_ORIGINS = [o.strip() for o in raw_cors.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request, exc):
+    """Sanitized 500 handler: logs full stack trace internally, returns generic message (API-02)."""
+    logger.error(f"Unhandled server error on {request.method} {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Please check server logs for details."}
+    )
 
 STATIC_DIR = Path(__file__).parent / "static"
 PRESETS_FILE = Path(__file__).parents[3] / "examples" / "sample_prompts.json"
@@ -296,7 +318,7 @@ def content_aware_mock_handler(prompt_text: str) -> str:
 
 # --- Request & Response Models ---
 class CandidateGenerationRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(..., max_length=MAX_PROMPT_LENGTH)
     constraints: List[str] = []
     provider: str = "gemini"
     model_name: str = "gemini-3.5-flash-lite"
@@ -305,11 +327,11 @@ class CandidateGenerationRequest(BaseModel):
 
 
 class EvaluationRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(..., max_length=MAX_PROMPT_LENGTH)
     constraints: List[str] = []
     reference_ground_truth: Optional[str] = None
-    response_a: str
-    response_b: str
+    response_a: str = Field(..., max_length=MAX_RESPONSE_LENGTH)
+    response_b: str = Field(..., max_length=MAX_RESPONSE_LENGTH)
     model_a_name: str = "Candidate A"
     model_b_name: str = "Candidate B"
     provider: str = "gemini"
@@ -442,11 +464,10 @@ def evaluate_pair(req: EvaluationRequest):
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Evaluation failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Evaluation failed: {str(e)}"
+            detail="An internal error occurred during evaluation. Please check server logs."
         )
 
 
@@ -501,9 +522,11 @@ def generate_candidate(req: CandidateGenerationRequest):
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Candidate generation failed: {str(e)}")
+        logger.error(f"Candidate generation failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred during candidate generation. Please check server logs."
+        )
 
 
 @app.get("/api/guidelines")
