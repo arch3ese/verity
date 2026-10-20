@@ -71,3 +71,35 @@ def test_mixed_deterministic_and_semantic_constraints_split():
     pair_report = RuleVerifier.verify_pair("Topic", mixed_rules, "A quick brown fox.", "An elephant.")
     assert "1/1 verified constraints passed; 1 unverified/semantic" in pair_report.summary_audit_prompt
 
+
+def test_telemetry_prompt_zero_deterministic_never_claims_passed_ratio():
+    """
+    COR-01 telemetry verification:
+    Asserts that when all constraints are semantic (0 deterministic):
+    1. Telemetry explicitly says '0 deterministic constraints checked; 4 unverified/semantic constraints require LLM judgment'.
+    2. Telemetry NEVER claims '4/4 passed' or 'N/N passed'.
+    3. Each constraint is explicitly tagged [UNVERIFIED].
+    """
+    semantic_rules = [
+        "Adopt a Shakespearean tone",
+        "Explain quantum physics accurately",
+        "Be concise and clear",
+        "Show empathy"
+    ]
+    pair_report = RuleVerifier.verify_pair("Physics topic", semantic_rules, "Candidate A response", "Candidate B response")
+    prompt_text = pair_report.summary_audit_prompt
+
+    # Wording check
+    assert "0 deterministic constraints checked; 4 unverified/semantic constraints require LLM judgment" in prompt_text
+    
+    # Must never claim N/N passed or 4/4 passed
+    assert "4/4" not in prompt_text
+    assert "0/0" not in prompt_text
+    assert "passed constraints" not in prompt_text.lower()
+    assert "verified constraints passed" not in prompt_text
+
+    # Every item must be marked [UNVERIFIED]
+    for rule in semantic_rules:
+        assert f"- Constraint '{rule}': [UNVERIFIED]" in prompt_text
+
+

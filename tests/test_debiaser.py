@@ -170,7 +170,9 @@ def test_human_ground_truth_calibration_overrides_tie():
         constraints=[],
         human_winner="model_b",
         annotator_rationale="Candidate B provides Rayleigh scattering explanation whereas Candidate A is too brief.",
-        scenario_focus="Sky Color Audit"
+        scenario_focus="Sky Color Audit",
+        preferred_response="The sky appears blue because sunlight undergoes Rayleigh scattering by air molecules.",
+        rejected_response="The sky is blue because of scattering."
     )
 
     # Even if LLM erroneously outputs a tie:
@@ -216,7 +218,8 @@ def test_calibration_override_preserves_candidate_identity_and_not_in_pairwise()
         human_winner="model_a",
         annotator_rationale="Prefer response_good always.",
         scenario_focus="Identity Test",
-        preferred_response=response_good
+        preferred_response=response_good,
+        rejected_response=response_bad,
     )
 
     def neutral_llm(msg: str) -> str:
@@ -323,6 +326,122 @@ def test_identical_responses_with_human_override_evaluates_to_tie():
 
     assert result.final_consensus_winner == PreferenceChoice.TIE
     assert result.confidence_score == 1.0
+
+
+def test_unordered_pair_calibration_matching_and_no_fallback():
+    """
+    COR-02 residual tests:
+    Verifies that human ground-truth override requires matching the normalized unordered pair (X, Y).
+    - (X, Y) -> X preferred
+    - (Y, X) -> X preferred (order-invariant)
+    - (X, Z) -> NO override (different alternative)
+    - (Z, Y) -> NO override (different candidate)
+    - Whitespace-only variation -> still matches
+    - Legacy entry without stored pair -> NO override
+    - Stored tie (X, Y) -> explicit TIE
+    - Identical candidates (X, X) -> explicit TIE
+    """
+    from aligncraft.alignment.guidelines import GuidelineBank
+    prompt = "Unordered pair calibration test prompt"
+    resp_x = "Response X: Detailed high-quality explanation."
+    resp_y = "Response Y: Flawed low-quality explanation."
+    resp_z = "Response Z: Brand new third alternative explanation."
+
+    # Register guideline where X > Y
+    GuidelineBank.add_human_override_guideline(
+        prompt=prompt,
+        constraints=[],
+        human_winner="model_a",
+        annotator_rationale="Response X is significantly better than Response Y.",
+        scenario_focus="Unordered Pair Test",
+        preferred_response=resp_x,
+        rejected_response=resp_y,
+    )
+
+    # Neutral LLM judge that votes MODEL_A by default if no override
+    def llm_handler(msg: str) -> str:
+        return json.dumps({
+            "winner": "model_a",
+            "margin": "slight",
+            "dimension_scores": [{"dimension": "factuality", "score_a": 4.0, "score_b": 3.0, "justification": "Default"}],
+            "overall_reasoning": "AI default forward pass winner",
+            "detected_errors_model_a": [],
+            "detected_errors_model_b": []
+        })
+
+    mock_llm = MockChatModel(response_handler=llm_handler)
+    judge = PairwiseJudge(mock_llm)
+    debiaser = DebiasingJudge(judge)
+    sample = PromptSample(id="test-pair", prompt=prompt)
+
+    # 1. Stored X > Y: forward order (X, Y) -> X wins (MODEL_A)
+    res_xy = debiaser.evaluate_with_debiasing(sample, response_a=resp_x, response_b=resp_y, use_human_calibration=True)
+    assert res_xy.final_consensus_winner == PreferenceChoice.MODEL_A
+    assert "Human Ground-Truth Calibrated" in res_xy.summary_critique
+
+    # 2. Stored X > Y: reversed order (Y, X) -> X wins (MODEL_B)
+    res_yx = debiaser.evaluate_with_debiasing(sample, response_a=resp_y, response_b=resp_x, use_human_calibration=True)
+    assert res_yx.final_consensus_winner == PreferenceChoice.MODEL_B
+    assert "Human Ground-Truth Calibrated" in res_yx.summary_critique
+
+    # 3. Partial match (X, Z): candidate pair does not match stored pair -> NO OVERRIDE
+    res_xz = debiaser.evaluate_with_debiasing(sample, response_a=resp_x, response_b=resp_z, use_human_calibration=True)
+    assert "Human Ground-Truth Calibrated" not in res_xz.summary_critique, (
+        "Defect: Ground truth override applied to (X, Z) even though Z was never evaluated against X!"
+    )
+
+    # 4. Partial match (Z, Y): candidate pair does not match stored pair -> NO OVERRIDE and NO SLOT FALLBACK
+    res_zy = debiaser.evaluate_with_debiasing(sample, response_a=resp_z, response_b=resp_y, use_human_calibration=True)
+    assert "Human Ground-Truth Calibrated" not in res_zy.summary_critique, (
+        "Defect: Ground truth override or slot fallback applied to (Z, Y)!"
+    )
+
+    # 5. Whitespace-only variations: should still match normalized unordered pair
+    resp_x_spaces = "  Response X:   Detailed high-quality explanation. \n"
+    resp_y_spaces = "\n Response Y: Flawed   low-quality explanation.  "
+    res_spaces = debiaser.evaluate_with_debiasing(sample, response_a=resp_x_spaces, response_b=resp_y_spaces, use_human_calibration=True)
+    assert res_spaces.final_consensus_winner == PreferenceChoice.MODEL_A
+    assert "Human Ground-Truth Calibrated" in res_spaces.summary_critique
+
+    # 6. Legacy entry without stored pair: must NEVER act as ground truth override
+    prompt_legacy = "Legacy guideline without stored pair"
+    GuidelineBank.add_human_override_guideline(
+        prompt=prompt_legacy,
+        constraints=[],
+        human_winner="model_a",
+        annotator_rationale="Legacy rationale without candidate text.",
+        scenario_focus="Legacy Test",
+        preferred_response=None,
+        rejected_response=None,
+    )
+    sample_legacy = PromptSample(id="test-legacy", prompt=prompt_legacy)
+    res_legacy = debiaser.evaluate_with_debiasing(sample_legacy, response_a=resp_x, response_b=resp_y, use_human_calibration=True)
+    assert "Human Ground-Truth Calibrated" not in res_legacy.summary_critique, (
+        "Defect: Legacy guideline without stored pair acted as ground truth override!"
+    )
+
+    # 7. Stored tie: (X, Y) evaluated where human recorded tie
+    prompt_tie = "Prompt with recorded tie"
+    GuidelineBank.add_human_override_guideline(
+        prompt=prompt_tie,
+        constraints=[],
+        human_winner="tie",
+        annotator_rationale="Both candidates are equally balanced.",
+        scenario_focus="Stored Tie Test",
+        preferred_response=resp_x,
+        rejected_response=resp_y,
+    )
+    sample_tie = PromptSample(id="test-tie", prompt=prompt_tie)
+    res_tie = debiaser.evaluate_with_debiasing(sample_tie, response_a=resp_x, response_b=resp_y, use_human_calibration=True)
+    assert res_tie.final_consensus_winner == PreferenceChoice.TIE, (
+        f"Defect: Stored tie did not produce an explicit TIE verdict! Got {res_tie.final_consensus_winner}"
+    )
+    assert "Human Ground-Truth Calibrated" in res_tie.summary_critique
+
+    # 8. Identical candidates (X, X) -> TIE
+    res_identical = debiaser.evaluate_with_debiasing(sample, response_a=resp_x, response_b=resp_x, use_human_calibration=True)
+    assert res_identical.final_consensus_winner == PreferenceChoice.TIE
+
 
 
 

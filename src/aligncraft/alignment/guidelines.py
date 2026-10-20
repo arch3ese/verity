@@ -22,6 +22,7 @@ class AlignmentGuideline(BaseModel):
     annotator_rationale: str
     key_alignment_rule: str
     preferred_response: Optional[str] = None
+    rejected_response: Optional[str] = None
     is_active: bool = True
 
 
@@ -126,6 +127,7 @@ class GuidelineBank:
         annotator_rationale: str,
         scenario_focus: str = "Human Annotator Override",
         preferred_response: Optional[str] = None,
+        rejected_response: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Records a human annotator's rationale as a new active alignment rule."""
         guidelines = cls._ensure_initialized()
@@ -139,6 +141,7 @@ class GuidelineBank:
             "annotator_rationale": annotator_rationale,
             "key_alignment_rule": f"Annotator Calibration: {annotator_rationale[:200]}",
             "preferred_response": preferred_response.strip() if preferred_response else None,
+            "rejected_response": rejected_response.strip() if rejected_response else None,
             "is_active": True
         }
         guidelines.append(new_item)

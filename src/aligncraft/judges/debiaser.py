@@ -121,39 +121,51 @@ class DebiasingJudge:
 
         # Ground-Truth Senior Human Annotator Calibration Override
         if use_human_calibration and sample and sample.prompt:
-            exact_override = GuidelineBank.find_exact_prompt_override(sample.prompt)
-            if exact_override:
-                preferred_resp = exact_override.get("preferred_response")
-                hw = exact_override.get("human_preferred_winner")
+            norm_a = GuidelineBank._normalize_prompt(response_a)
+            norm_b = GuidelineBank._normalize_prompt(response_b)
 
-                # Track candidate by text identity when available to remain order-invariant
-                if response_a.strip() == response_b.strip():
-                    final_winner = PreferenceChoice.TIE
-                    cand_label = "Equally Rated"
-                elif preferred_resp:
-                    if response_a.strip() == preferred_resp.strip():
-                        final_winner = PreferenceChoice.MODEL_A
-                        cand_label = model_a_name or "Candidate A"
-                    elif response_b.strip() == preferred_resp.strip():
-                        final_winner = PreferenceChoice.MODEL_B
-                        cand_label = model_b_name or "Candidate B"
-                    else:
-                        final_winner = PreferenceChoice.MODEL_A if hw == "model_a" else PreferenceChoice.MODEL_B
-                        cand_label = (model_a_name or "Candidate A") if final_winner == PreferenceChoice.MODEL_A else (model_b_name or "Candidate B")
-                elif hw in ["model_a", "model_b"]:
-                    final_winner = PreferenceChoice.MODEL_A if hw == "model_a" else PreferenceChoice.MODEL_B
-                    cand_label = (model_a_name or "Candidate A") if final_winner == PreferenceChoice.MODEL_A else (model_b_name or "Candidate B")
-                else:
-                    cand_label = "Equally Rated"
+            if norm_a == norm_b:
+                final_winner = PreferenceChoice.TIE
+                cand_label = "Equally Rated"
+                confidence = 1.0
+                positional_bias_detected = False
+                summary = "Human Ground-Truth Calibrated: Both candidates have identical content."
+            else:
+                exact_override = GuidelineBank.find_exact_prompt_override(sample.prompt)
+                if exact_override:
+                    stored_pref = exact_override.get("preferred_response")
+                    stored_rej = exact_override.get("rejected_response")
+                    hw = exact_override.get("human_preferred_winner")
 
-                if hw in ["model_a", "model_b"] and response_a.strip() != response_b.strip():
-                    confidence = 0.98
-                    positional_bias_detected = False
-                    summary = f"Human Ground-Truth Calibrated: Senior annotator preference ({cand_label}) enforced for this prompt. Rationale: {exact_override.get('annotator_rationale')}"
-                elif response_a.strip() == response_b.strip():
-                    confidence = 1.0
-                    positional_bias_detected = False
-                    summary = f"Human Ground-Truth Calibrated: Both candidates have identical content. Rationale: {exact_override.get('annotator_rationale')}"
+                    # Apply override only when the normalized unordered pair equals the stored pair.
+                    # Legacy entries without a stored pair never act as ground truth.
+                    if stored_pref is not None and stored_rej is not None:
+                        norm_pref = GuidelineBank._normalize_prompt(stored_pref)
+                        norm_rej = GuidelineBank._normalize_prompt(stored_rej)
+
+                        stored_pair = {norm_pref, norm_rej}
+                        current_pair = {norm_a, norm_b}
+
+                        if current_pair == stored_pair:
+                            if hw == "tie":
+                                final_winner = PreferenceChoice.TIE
+                                confidence = 1.0
+                                positional_bias_detected = False
+                                summary = f"Human Ground-Truth Calibrated: Senior annotator recorded a balanced Tie between these responses. Rationale: {exact_override.get('annotator_rationale')}"
+                            elif norm_a == norm_pref:
+                                final_winner = PreferenceChoice.MODEL_A
+                                cand_label = model_a_name or "Candidate A"
+                                confidence = 0.98
+                                positional_bias_detected = False
+                                summary = f"Human Ground-Truth Calibrated: Senior annotator preference ({cand_label}) enforced for this prompt. Rationale: {exact_override.get('annotator_rationale')}"
+                            elif norm_b == norm_pref:
+                                final_winner = PreferenceChoice.MODEL_B
+                                cand_label = model_b_name or "Candidate B"
+                                confidence = 0.98
+                                positional_bias_detected = False
+                                summary = f"Human Ground-Truth Calibrated: Senior annotator preference ({cand_label}) enforced for this prompt. Rationale: {exact_override.get('annotator_rationale')}"
+                    # If pair does not match, or legacy entry without stored pair:
+                    # Do NOT apply any override and do NOT fall back to slot position.
 
         # Calculate Tiebreaker Options if Indeterminate
         can_resolve_tiebreaker = False

@@ -576,10 +576,16 @@ def submit_human_audit(req: DetailedHumanAuditRequest):
             )
 
         pref_resp = None
+        rej_resp = None
         if req.human_overall_winner == PreferenceChoice.MODEL_A:
             pref_resp = req.response_a
+            rej_resp = req.response_b
         elif req.human_overall_winner == PreferenceChoice.MODEL_B:
             pref_resp = req.response_b
+            rej_resp = req.response_a
+        elif req.human_overall_winner == PreferenceChoice.TIE:
+            pref_resp = req.response_a
+            rej_resp = req.response_b
 
         # Record this human override as a new few-shot calibration guideline!
         GuidelineBank.add_human_override_guideline(
@@ -589,6 +595,7 @@ def submit_human_audit(req: DetailedHumanAuditRequest):
             annotator_rationale=req.human_rationale,
             scenario_focus=f"Human Audit #{len(GuidelineBank.get_all_guidelines())+1} Calibration",
             preferred_response=pref_resp,
+            rejected_response=rej_resp,
         )
 
     mae = (total_abs_diff / total_rubric_points) if total_rubric_points > 0 else 0.0
