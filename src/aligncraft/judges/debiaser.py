@@ -400,6 +400,8 @@ class DebiasingJudge:
             return False
 
         # Exemption 1: Winner's advantage includes a critical veto
+        if getattr(verdict, "critical_veto_applied", False):
+            return False
         reasoning = verdict.overall_reasoning or ""
         if "Critical Veto" in reasoning or "Safety Veto" in reasoning or "Neuro-Symbolic Override" in reasoning:
             return False

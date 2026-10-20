@@ -90,6 +90,10 @@ class PairwiseVerdict(BaseModel):
         default=None,
         description="Raw categorical winner chosen by LLM before guardrails or downgrades"
     )
+    critical_veto_applied: bool = Field(
+        default=False,
+        description="True if a Tier 1 Safety or Tier 2 Hard Negative critical veto was applied to disqualify a candidate"
+    )
 
 
 class DebiasedEvaluation(BaseModel):

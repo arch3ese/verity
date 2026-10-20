@@ -153,6 +153,52 @@ class RuleVerifier:
     """
 
     @classmethod
+    def extract_constraints(cls, prompt: str) -> List[str]:
+        """
+        Deterministically extracts verifiable constraints from user prompt text.
+        """
+        if not prompt:
+            return []
+        extracted = []
+        p_clean = prompt.replace('\r\n', '\n').replace('\r', '\n').strip()
+        p_lower = p_clean.lower()
+
+        # 1. Single sentence / exact sentence constraints
+        if "one sentence" in p_lower or "1 sentence" in p_lower or "single sentence" in p_lower:
+            extracted.append("Must be exactly 1 sentence")
+
+        sent_m = re.search(r'(?:in|within|use|write)\s+(?:no\s+more\s+than|at\s+most|maximum\s+of)?\s*(\d+|one|two|three|four|five)\s+sentences?', p_lower)
+        if sent_m and "Must be exactly 1 sentence" not in extracted:
+            extracted.append(sent_m.group(0))
+
+        # 2. Lipograms / letter negation: e.g. "without using the letter 'e'", "no e's allowed", "omits the letter z"
+        lipo_m = re.search(r"(?:not\s+contain|without\s+using|without|no|must\s+not\s+have|never\s+use|forbid(?:den)?|avoid|omit(?:s)?|exclude|lipogram\s+(?:on|without|that\s+omits))\s+(?:the\s+)?(?:letter|character)?\s*['\"]?([a-zA-Z])['\"]?(?:'s|\b)", p_lower)
+        if lipo_m:
+            extracted.append(lipo_m.group(0))
+
+        # 3. Forbidden words: e.g. "without mentioning X", "do not use the word X", "avoid the word X"
+        word_m = re.search(r"(?:do\s+not\s+use|must\s+not\s+mention|without\s+mentioning|avoid(?:\s+the\s+word)?|forbid(?:\s+the\s+word)?)\s+(?:the\s+word\s+)?['\"]?([a-zA-Z0-9_\-]+)['\"]?", p_lower)
+        if word_m and "letter" not in p_lower:
+            extracted.append(word_m.group(0))
+
+        # 4. Word count limits: e.g. "fewer than 40 words", "under 50 words", "in 25 words"
+        w_m = re.search(r'(?:fewer\s+than|less\s+than|under|at\s+most|no\s+more\s+than|at\s+least|exactly|use)\s+(\d+)\s+words', p_lower)
+        if w_m:
+            extracted.append(w_m.group(0))
+
+        # 5. Formats: JSON, Bullets, Paragraphs
+        if "valid json" in p_lower or "in json" in p_lower or "only with valid json" in p_lower:
+            extracted.append("Respond only with valid JSON")
+        b_m = re.search(r'(?:format\s+(?:the\s+answer\s+)?as\s+a\s+bulleted\s+list|use\s+(?:exactly\s+)?(?:\d+|one|two|three|four|five)\s+bullet\s+points?)', p_lower)
+        if b_m:
+            extracted.append(b_m.group(0))
+        para_m = re.search(r'(?:write|use)\s+(\d+|one|two|three|four|five)\s+paragraphs?', p_lower)
+        if para_m:
+            extracted.append(para_m.group(0))
+
+        return extracted
+
+    @classmethod
     def audit_candidate(
         cls,
         text: str,
@@ -161,7 +207,7 @@ class RuleVerifier:
     ) -> CandidateVerificationReport:
         is_oversize = len(text) > MAX_VERIFIER_INPUT_CHARS
         raw_text = text[:MAX_VERIFIER_INPUT_CHARS] if is_oversize else text
-        clean_text = raw_text.strip()
+        clean_text = raw_text.replace('\r\n', '\n').replace('\r', '\n').strip()
 
         word_count = _calculate_word_count(clean_text)
         sentences = _split_into_sentences(clean_text)
@@ -194,9 +240,10 @@ class RuleVerifier:
         # 2. Check each constraint
         all_rules = list(constraints)
         if prompt:
-            prompt_lower = prompt.lower()
-            if "one sentence" in prompt_lower or "1 sentence" in prompt_lower or "single sentence" in prompt_lower:
-                all_rules.append("Must be exactly 1 sentence")
+            prompt_extracted = cls.extract_constraints(prompt)
+            for er in prompt_extracted:
+                if not any(er.lower() in r.lower() or r.lower() in er.lower() for r in all_rules):
+                    all_rules.append(er)
 
         # Decomposed text for Unicode-aware lipograms (accented chars like 'é' decompose to 'e' + combining mark)
         # Task E4: fold ligatures like 'ß' -> 'ss', 'æ' -> 'ae', 'ø' -> 'o', 'œ' -> 'oe'
@@ -208,14 +255,10 @@ class RuleVerifier:
             rule_clean = rule.strip()
             rule_lower = rule_clean.lower()
 
-            # Guard 0: Non-constraint / Topical / Quote Mentions (Probes 24-27)
-            if (
-                rule_clean.startswith("Explain why ")
-                or rule_clean.startswith("Summarize this article:")
-                or "rewrite it politely" in rule_lower
-                or "novel written with no letter" in rule_lower
-                or "essay about gadsby" in rule_lower
-            ):
+            rule_unquoted = re.sub(r"['\"].*?['\"]", "", rule_lower)
+
+            # Descriptive context check (e.g. Probe 27: novel written with no letter e)
+            if re.search(r'\b(?:novel|book|story|article|poem)\s+(?:written\s+)?with\s+no\s+letter', rule_lower):
                 report.constraint_audits.append(
                     ConstraintAuditItem(
                         constraint=rule_clean,
@@ -265,18 +308,16 @@ class RuleVerifier:
 
             # A. Negative Character/Lipogram Constraints
             letter_neg_matches = re.findall(
-                r'(?:not\s+contain|without\s+using|without|no|must\s+not\s+have|never\s+use|forbid(?:den)?|avoid|omit(?:s)?|exclude|lipogram\s+(?:on|without|that\s+omits))\s+(?:the\s+)?(?:letter|character)?\s*[\'"]?([a-zA-Z])[\'"]?(?:\'s|\b)',
+                r"(?:not\s+contain|without\s+using|without|no|must\s+not\s+have|never\s+use|forbid(?:den)?|avoid|omit(?:s)?|exclude|lipogram\s+(?:on|without|that\s+omits))\s+(?:the\s+)?(?:letter|character)?\s*['\"]?([a-zA-Z])['\"]?(?:'s|\b)",
                 rule_lower
             )
             no_s_matches = re.findall(r"\bno\s+([a-zA-Z])(?:'s|\b)", rule_lower)
-            alt_letters = re.findall(r'[\'"]([a-zA-Z])[\'"]', rule_clean)
-            after_letters = re.findall(r'letter\s+[\'"]?([a-zA-Z])[\'"]?\s+(?:never\s+appears|is\s+forbidden|must\s+not\s+appear)', rule_lower)
+            after_letters = re.findall(r"letter\s+['\"]?([a-zA-Z])['\"]?\s+(?:never\s+appears|is\s+forbidden|must\s+not\s+appear)", rule_lower)
 
             target_letters = set(
                 [m.lower() for m in letter_neg_matches] +
                 [m.lower() for m in no_s_matches] +
-                [m.lower() for m in after_letters] +
-                [m.lower() for m in alt_letters if "letter" in rule_lower or "character" in rule_lower or "lipogram" in rule_lower]
+                [m.lower() for m in after_letters]
             )
 
             if target_letters and "word" not in rule_lower:
@@ -298,19 +339,21 @@ class RuleVerifier:
 
             # B. Forbidden words: "do not use the word 'X'", "avoid the word X"
             word_neg_match = re.search(
-                r'(?:do\s+not\s+use|must\s+not\s+mention|avoid(?:\s+the\s+word)?|forbid(?:\s+the\s+word)?)\s+(?:the\s+word\s+)?[\'"]?([a-zA-Z0-9_\-]+)[\'"]?',
+                r"(?:do\s+not\s+use|must\s+not\s+mention|without\s+mentioning|avoid(?:\s+the\s+word)?|forbid(?:\s+the\s+word)?)\s+(?:the\s+word\s+)?['\"]?([a-zA-Z0-9_\-]+)['\"]?",
                 rule_lower
             )
             if word_neg_match and "letter" not in rule_lower and "character" not in rule_lower:
                 forb_word = word_neg_match.group(1).lower()
                 if forb_word not in ["slang", "jargon", "violence", "bias"]:
-                    if re.search(r'\b' + re.escape(forb_word) + r'\b', clean_text.lower()):
+                    occurrences = len(re.findall(r'\b' + re.escape(forb_word) + r'\b', clean_text.lower()))
+                    if occurrences > 0:
                         report.hard_negative_violation = True
+                        report.character_violations.append(f"Forbidden word '{forb_word}': {occurrences} occurrences")
                         report.constraint_audits.append(
                             ConstraintAuditItem(
                                 constraint=rule_clean,
                                 passed=False,
-                                details=f"VIOLATION: Contained forbidden word '{forb_word}'."
+                                details=f"VIOLATION: Contained forbidden word '{forb_word}' ({occurrences} occurrences)."
                             )
                         )
                     else:
@@ -323,10 +366,10 @@ class RuleVerifier:
                         )
                     continue
 
-            # C. Sentence count checks
+            # C. Sentence count checks (use rule_unquoted so quoted text in prompts is ignored)
             sent_range_match = re.search(
-                r'between\s+(\d+|one|two|three|four|five|six)\s+and\s+(\d+|one|two|three|four|five|six)\s+sentences?',
-                rule_lower
+                r'between\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+and\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+sentences?',
+                rule_unquoted
             )
             if sent_range_match:
                 min_s = _word_to_int(sent_range_match.group(1)) or 4
@@ -339,7 +382,7 @@ class RuleVerifier:
                 )
                 continue
 
-            if "single sentence" in rule_lower:
+            if "single sentence" in rule_unquoted or "1 sentence" in rule_unquoted:
                 passed = sentence_count == 1
                 status = "PASSED" if passed else "VIOLATION"
                 detail = f"{status}: Expected exactly 1 sentence, found {sentence_count}."
@@ -349,15 +392,15 @@ class RuleVerifier:
                 continue
 
             sent_match = re.search(
-                r'(?:exactly|write\s+exactly|limit\s+(?:your\s+response\s+)?to|at\s+most|maximum\s+of|no\s+more\s+than|at\s+least)?\s*(\d+|one|two|three|four|five)[\s\-]+sentences?',
-                rule_lower
+                r'(?:exactly|write\s+exactly|limit\s+(?:your\s+response\s+)?to|at\s+most|maximum\s+of|no\s+more\s+than|at\s+least)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)[\s\-]+sentences?',
+                rule_unquoted
             )
             if sent_match:
                 target_sent_str = sent_match.group(1)
                 target_sent = _word_to_int(target_sent_str)
                 if target_sent is not None:
-                    is_at_most = any(w in rule_lower for w in ["at most", "maximum", "no more than", "limit"])
-                    is_at_least = "at least" in rule_lower
+                    is_at_most = any(w in rule_unquoted for w in ["at most", "maximum", "no more than", "limit"])
+                    is_at_least = "at least" in rule_unquoted
 
                     if is_at_most:
                         passed = sentence_count <= target_sent
@@ -461,7 +504,10 @@ class RuleVerifier:
             if "bullet" in rule_lower:
                 bullet_lines = [line.strip() for line in clean_text.splitlines() if line.strip().startswith(('-', '*', '•'))]
                 exact_b = None
-                if "three" in rule_lower or " 3 " in rule_lower:
+                b_match = re.search(r'(?:exactly|use)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+bullet', rule_lower)
+                if b_match:
+                    exact_b = _word_to_int(b_match.group(1))
+                elif "three" in rule_lower or " 3 " in rule_lower:
                     exact_b = 3
                 if exact_b is not None:
                     passed = len(bullet_lines) == exact_b
@@ -479,7 +525,10 @@ class RuleVerifier:
             if "paragraph" in rule_lower:
                 paras = [p.strip() for p in clean_text.split('\n\n') if p.strip()]
                 exact_p = None
-                if "two" in rule_lower or " 2 " in rule_lower:
+                p_match = re.search(r'(?:write|use|exactly)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+paragraphs?', rule_lower)
+                if p_match and p_match.group(1):
+                    exact_p = _word_to_int(p_match.group(1))
+                elif "two" in rule_lower or " 2 " in rule_lower:
                     exact_p = 2
                 if exact_p is not None:
                     passed = len(paras) == exact_p

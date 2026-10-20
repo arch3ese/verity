@@ -102,17 +102,17 @@ def _sanitize_candidate_text(text: str) -> str:
         slot = match.group(2).lower()
         return f"&lt;{slash}candidate_{slot}_response&gt;"
 
-    # 1. Neutralize boundary tags (case-insensitive, whitespace-tolerant)
+    # 1. Neutralize boundary tags (case-insensitive, whitespace-tolerant, attribute-tolerant)
     sanitized = re.sub(
-        r'<\s*(/?)\s*candidate_([ab])_response\s*>',
+        r'<\s*(/?)\s*candidate_([ab])_response(?:\s+[^>]*)?>',
         _replace_tag,
         text,
         flags=re.IGNORECASE,
     )
 
-    # 2. Neutralize lines starting with template section headers like ### REQUIRED OUTPUT FORMAT
+    # 2. Neutralize lines starting with template section headers (1 to 6 hashes, optional trailing punctuation)
     sanitized = re.sub(
-        r'(?mi)^(\s*###\s*(?:REQUIRED OUTPUT FORMAT|CANDIDATE [AB]|EVALUATION|TASK DESCRIPTION|INSTRUCTIONS))',
+        r'(?mi)^(\s*#{1,6}\s*(?:REQUIRED OUTPUT FORMAT|CANDIDATE [AB]|EVALUATION|TASK DESCRIPTION|INSTRUCTIONS|CRITERIA)[^\n]*)',
         r'[ESCAPED HEADER] \1',
         sanitized,
     )
@@ -342,6 +342,7 @@ Only return JSON. No introductory pleasantries."""
         winner = verdict.winner
         reasons = [verdict.overall_reasoning] if verdict.overall_reasoning else []
         tier_disagreement = False
+        critical_veto_applied = False
 
         # 0. Weighted Rubric Reconcile & Tier Disagreement Check (EVAL-01 / Task B2)
         if scores:
@@ -382,7 +383,8 @@ Only return JSON. No introductory pleasantries."""
                 detected_errors_model_a=errors_a,
                 detected_errors_model_b=errors_b,
                 inconsistency_detected=verdict.inconsistency_detected,
-                tier_disagreement=tier_disagreement
+                tier_disagreement=tier_disagreement,
+                critical_veto_applied=False
             )
 
         # 1. Negative Constraint Tagging (Tag verified errors without hardcoding synthetic score caps)
@@ -393,6 +395,7 @@ Only return JSON. No introductory pleasantries."""
 
         # 2. Semantic Void / Pure Noise / Gibberish Hygiene Guardrail
         if rep_a.is_gibberish_or_noise:
+            critical_veto_applied = True
             if ErrorTag.SEMANTIC_VOID not in errors_a:
                 errors_a.append(ErrorTag.SEMANTIC_VOID)
             for ds in scores:
@@ -411,6 +414,7 @@ Only return JSON. No introductory pleasantries."""
                     winner = PreferenceChoice.TIE
 
         if rep_b.is_gibberish_or_noise:
+            critical_veto_applied = True
             if ErrorTag.SEMANTIC_VOID not in errors_b:
                 errors_b.append(ErrorTag.SEMANTIC_VOID)
             for ds in scores:
@@ -460,6 +464,8 @@ Only return JSON. No introductory pleasantries."""
 
         veto_a = len(veto_reasons_a) > 0
         veto_b = len(veto_reasons_b) > 0
+        if veto_a or veto_b:
+            critical_veto_applied = True
 
         margin = verdict.margin
         if veto_a and veto_b:
@@ -479,7 +485,12 @@ Only return JSON. No introductory pleasantries."""
                     for v in rep.character_violations:
                         m = re.search(r'(\d+)\s+occurrences?', v)
                         tot += int(m.group(1)) if m else 1
-                    return tot if tot > 0 else len(rep.character_violations)
+                    for item in rep.constraint_audits:
+                        if item.passed is False:
+                            m = re.search(r'(\d+)\s+occurrences?', item.details)
+                            if m and not rep.character_violations:
+                                tot += int(m.group(1))
+                    return tot if tot > 0 else (len(rep.character_violations) or sum(1 for item in rep.constraint_audits if item.passed is False))
 
                 count_a = _calc_total_violations(rep_a)
                 count_b = _calc_total_violations(rep_b)
@@ -565,6 +576,7 @@ Only return JSON. No introductory pleasantries."""
             detected_errors_model_b=errors_b,
             inconsistency_detected=inconsistency_detected,
             tier_disagreement=tier_disagreement,
-            raw_winner=verdict.raw_winner or verdict.winner
+            raw_winner=verdict.raw_winner or verdict.winner,
+            critical_veto_applied=critical_veto_applied
         )
 
