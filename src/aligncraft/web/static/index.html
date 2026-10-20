@@ -251,7 +251,7 @@
           <div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
             <div class="flex items-center space-x-2">
               <span class="w-2.5 h-2.5 rounded-full bg-[#0071e3]"></span>
-              <span class="text-xs font-bold text-white uppercase tracking-wider">Candidate A</span>
+              <span class="text-xs font-semibold text-white">Candidate A</span>
             </div>
             <div class="flex items-center space-x-1.5 text-[11px] text-[#86868b] code-font">
               <span id="cand-a-chars">0 chars</span>
@@ -300,7 +300,7 @@
           <div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
             <div class="flex items-center space-x-2">
               <span class="w-2.5 h-2.5 rounded-full bg-[#bf5af2]"></span>
-              <span class="text-xs font-bold text-white uppercase tracking-wider">Candidate B</span>
+              <span class="text-xs font-semibold text-white">Candidate B</span>
             </div>
             <div class="flex items-center space-x-1.5 text-[11px] text-[#86868b] code-font">
               <span id="cand-b-chars">0 chars</span>
@@ -366,7 +366,7 @@
             <div>
               <span class="text-[11px] font-semibold uppercase tracking-wider text-[#86868b] block mb-1">Debiased Consensus Verdict</span>
               <div class="flex items-center space-x-3">
-                <span id="verdict-winner" class="text-xl font-bold tracking-tight text-white">CANDIDATE A PREFERRED</span>
+                <span id="verdict-winner" class="text-xl font-bold tracking-tight text-white">Candidate A Preferred</span>
                 <span id="verdict-confidence" class="px-2.5 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30">95% Confidence</span>
               </div>
             </div>
@@ -1048,28 +1048,28 @@
       heroCard.className = heroCard.className.replace(/border-l-\[\S+\]/g, '');
 
       if (winner === "model_a") {
-        winnerElement.innerText = "CANDIDATE A PREFERRED";
+        winnerElement.innerText = "Candidate A Preferred";
         winnerElement.className = "text-xl font-bold tracking-tight text-[#0071e3]";
         heroCard.classList.add('border-l-4', 'border-l-[#0071e3]');
         confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30";
-        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.toUpperCase()} PREFERENCE`;
+        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.charAt(0).toUpperCase() + data.forward_verdict.margin.slice(1)} Preference`;
         setHumanChoice('model_a');
       } else if (winner === "model_b") {
-        winnerElement.innerText = "CANDIDATE B PREFERRED";
+        winnerElement.innerText = "Candidate B Preferred";
         winnerElement.className = "text-xl font-bold tracking-tight text-[#bf5af2]";
         heroCard.classList.add('border-l-4', 'border-l-[#bf5af2]');
         confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#bf5af2]/15 text-[#bf5af2] border border-[#bf5af2]/30";
-        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.toUpperCase()} PREFERENCE`;
+        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.charAt(0).toUpperCase() + data.forward_verdict.margin.slice(1)} Preference`;
         setHumanChoice('model_b');
       } else if (winner === "tie") {
-        winnerElement.innerText = "EQUALLY RATED (TIE)";
+        winnerElement.innerText = "Equally Rated (Tie)";
         winnerElement.className = "text-xl font-bold tracking-tight text-[#ff9f0a]";
         heroCard.classList.add('border-l-4', 'border-l-[#ff9f0a]');
         confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#ff9f0a]/15 text-[#ff9f0a] border border-[#ff9f0a]/30";
         confElement.innerText = "Equally Balanced Performance";
         setHumanChoice('tie');
       } else {
-        winnerElement.innerText = "INDETERMINATE (POSITIONAL BIAS FLIP)";
+        winnerElement.innerText = "Indeterminate (Positional Bias Flip)";
         winnerElement.className = "text-xl font-bold tracking-tight text-[#ff453a]";
         heroCard.classList.add('border-l-4', 'border-l-[#ff453a]');
         confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/30";
@@ -1171,14 +1171,14 @@
       heroCard.className = heroCard.className.replace(/border-l-\[\S+\]/g, '');
 
       if (cand === 'model_a') {
-        winnerElement.innerText = "CANDIDATE A PREFERRED (RESOLVED VIA TIEBREAKER)";
+        winnerElement.innerText = "Candidate A Preferred (Resolved via Tiebreaker)";
         winnerElement.className = "text-xl font-bold tracking-tight text-[#0071e3]";
         heroCard.classList.add('border-l-4', 'border-l-[#0071e3]');
         confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30";
         confElement.innerText = `60% Confidence • Weak Margin (Positional Variance Flagged)`;
         setHumanChoice('model_a');
       } else {
-        winnerElement.innerText = "CANDIDATE B PREFERRED (RESOLVED VIA TIEBREAKER)";
+        winnerElement.innerText = "Candidate B Preferred (Resolved via Tiebreaker)";
         winnerElement.className = "text-xl font-bold tracking-tight text-[#bf5af2]";
         heroCard.classList.add('border-l-4', 'border-l-[#bf5af2]');
         confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#bf5af2]/15 text-[#bf5af2] border border-[#bf5af2]/30";
