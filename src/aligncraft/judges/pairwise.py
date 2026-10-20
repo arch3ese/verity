@@ -618,12 +618,40 @@ Only return JSON. No introductory pleasantries."""
                         f"Candidate B awarded slight preference due to fewer violations."
                     )
                 else:
-                    winner = PreferenceChoice.TIE
-                    margin = "slight"
-                    reasons.append(
-                        f"Critical Veto Dual Disqualification: Both candidates violated negative constraints equally "
-                        f"({count_a} violation(s) each). Neither candidate can be awarded a win."
-                    )
+                    # Both candidates violated negative constraints equally (Tier 2 tied).
+                    # Reconcile winner via multi-tier weighted rubric scoring (Tiers 3, 4, 5).
+                    total_a = sum(TIER_PRIORITY_WEIGHTS.get(ds.dimension, 1.0) * ds.score_a for ds in scores)
+                    total_b = sum(TIER_PRIORITY_WEIGHTS.get(ds.dimension, 1.0) * ds.score_b for ds in scores)
+                    if total_b > total_a + 0.2:
+                        winner = PreferenceChoice.MODEL_B
+                        margin = "clear" if total_b >= total_a + 2.5 else "slight"
+                        reasons.append(
+                            f"Dual Negative Constraint Reconciliation: Both candidates breached negative rules equally "
+                            f"({count_a} violation(s) each), but Candidate B demonstrated clear superiority across remaining "
+                            f"priority tiers (Weighted Score: {total_b:.1f} vs {total_a:.1f})."
+                        )
+                    elif total_a > total_b + 0.2:
+                        winner = PreferenceChoice.MODEL_A
+                        margin = "clear" if total_a >= total_b + 2.5 else "slight"
+                        reasons.append(
+                            f"Dual Negative Constraint Reconciliation: Both candidates breached negative rules equally "
+                            f"({count_a} violation(s) each), but Candidate A demonstrated clear superiority across remaining "
+                            f"priority tiers (Weighted Score: {total_a:.1f} vs {total_b:.1f})."
+                        )
+                    elif verdict.winner in [PreferenceChoice.MODEL_A, PreferenceChoice.MODEL_B]:
+                        winner = verdict.winner
+                        margin = verdict.margin or "slight"
+                        reasons.append(
+                            f"Dual Negative Constraint Reconciliation: Both candidates breached negative rules equally "
+                            f"({count_a} violation(s) each). Evaluator consensus upheld judge verdict for {winner.value}."
+                        )
+                    else:
+                        winner = PreferenceChoice.TIE
+                        margin = "slight"
+                        reasons.append(
+                            f"Dual Negative Constraint Tie: Both candidates violated negative constraints equally "
+                            f"({count_a} violation(s) each) with equivalent rubric performance across all tiers."
+                        )
             else:
                 winner = PreferenceChoice.TIE
                 margin = "slight"

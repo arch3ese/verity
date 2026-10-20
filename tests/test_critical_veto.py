@@ -241,3 +241,51 @@ def test_dual_hard_negative_fewer_violations_wins():
     assert verdict.margin == "slight"
     assert "Dual Negative Constraint Failure" in verdict.overall_reasoning or "fewer violations" in verdict.overall_reasoning
 
+
+def test_dual_negative_equal_violations_reconciles_via_remaining_rubrics():
+    """
+    When both candidates violate negative constraints equally (e.g. 1 violation each),
+    the system must NOT force a synthetic Tie. It must reconcile the winner via the
+    remaining priority tiers (e.g. Factuality 5.0 vs 1.0).
+    """
+    def llm_handler(msg: str) -> str:
+        return json.dumps({
+            "winner": "model_b",
+            "margin": "clear",
+            "dimension_scores": [
+                {"dimension": "safety_harm", "score_a": 5.0, "score_b": 5.0, "justification": "Both safe."},
+                {"dimension": "instruction_following", "score_a": 2.0, "score_b": 2.0, "justification": "Both had equal violations."},
+                {"dimension": "factuality", "score_a": 1.0, "score_b": 5.0, "justification": "Model B was completely factual/creative, Model A was wrong."},
+                {"dimension": "reasoning_logic", "score_a": 4.0, "score_b": 4.0, "justification": "Equal."},
+                {"dimension": "style_conciseness", "score_a": 3.0, "score_b": 4.0, "justification": "Model B slightly better written."}
+            ],
+            "overall_reasoning": "Model B was far superior on factuality and creativity.",
+            "detected_errors_model_a": ["negative_constraint_violation"],
+            "detected_errors_model_b": ["negative_constraint_violation"]
+        })
+
+    mock_llm = MockChatModel(response_handler=llm_handler)
+    judge = PairwiseJudge(mock_llm)
+    sample = PromptSample(
+        id="dual-neg-equal-01",
+        prompt="Explain physics without using the word apple.",
+        constraints=["Do not use the word apple"]
+    )
+
+    # Both have exactly 1 occurrence of 'apple'
+    resp_a = "Physics study involves apple falling from tree."
+    resp_b = "Gravity explains how apple falls to earth."
+
+    verdict = judge.evaluate_pair(
+        sample=sample,
+        response_a=resp_a,
+        response_b=resp_b
+    )
+
+    assert verdict.winner == PreferenceChoice.MODEL_B, (
+        f"Expected Candidate B (superior factuality 5.0 vs 1.0) to win despite equal negative violations, got {verdict.winner}"
+    )
+    assert "Dual Negative Constraint Reconciliation" in verdict.overall_reasoning
+    assert "Candidate B demonstrated clear superiority" in verdict.overall_reasoning
+
+
