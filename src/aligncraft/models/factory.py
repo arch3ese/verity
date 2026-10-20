@@ -171,10 +171,10 @@ def get_chat_model(
         )
 
     elif provider_clean == "ollama":
-        base_url = kwargs.get("base_url") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        from langchain_community.chat_models import ChatOllama
+        base_url = kwargs.pop("base_url", None) or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        from langchain_ollama import ChatOllama
         return ChatOllama(
-            model=model_name,
+            model=model_name or "llama3.2",
             base_url=base_url,
             temperature=temperature,
             **kwargs,

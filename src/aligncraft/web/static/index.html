@@ -88,7 +88,7 @@
             <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
             <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Quick-Load Enterprise Evaluation Presets:</span>
           </div>
-          <span class="text-xs text-slate-500">Modeled on real Outlier / Mercor assessment challenges</span>
+          <span class="text-xs text-slate-500">Standardized AI Alignment & RLHF Benchmark Scenarios</span>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5" id="presets-container">
           <!-- Preset buttons dynamically injected -->
@@ -121,8 +121,10 @@
             </label>
             <div class="flex items-center space-x-2">
               <label class="text-xs text-slate-400">Live AI Judge:</label>
-              <select id="judge-provider" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2.5 py-1 text-slate-200 focus:outline-none focus:border-indigo-500">
+              <select id="judge-provider" onchange="onJudgeProviderChanged()" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2.5 py-1 text-slate-200 focus:outline-none focus:border-indigo-500">
                 <option value="gemini">Google Gemini (3.5 Flash-Lite / auto-failover)</option>
+                <option value="openai">OpenAI (gpt-4o-mini)</option>
+                <option value="ollama">Local Ollama (llama3.2 / offline)</option>
               </select>
             </div>
           </div>
@@ -277,51 +279,81 @@
           </div>
         </div>
 
-        <!-- HUMAN-IN-THE-LOOP INTER-ANNOTATOR AGREEMENT (COHEN'S KAPPA) -->
-        <div class="glass-card rounded-2xl p-6 border border-indigo-500/30 bg-gradient-to-b from-slate-900/90 to-slate-900/60">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <!-- HUMAN ANNOTATOR MULTI-RUBRIC AUDIT & CALIBRATION STATION -->
+        <div class="glass-card rounded-2xl p-6 border border-indigo-500/30 bg-gradient-to-b from-slate-900/95 to-slate-900/70 space-y-5">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
             <div>
               <div class="flex items-center space-x-2">
                 <i data-lucide="user-check" class="w-5 h-5 text-indigo-400"></i>
-                <h3 class="text-base font-bold text-white">Human Annotator Audit & Live Cohen's Kappa</h3>
+                <h3 class="text-base font-bold text-white">Lead Human Annotator Multi-Rubric Audit & IAA Calibration</h3>
               </div>
-              <p class="text-xs text-slate-400 mt-0.5">Submit your own ground-truth rating to benchmark judge alignment consistency</p>
+              <p class="text-xs text-slate-400 mt-0.5">Audit every rubric score (1.0–5.0), provide human reasoning, and calibrate judge agreement vs human ground-truth.</p>
             </div>
 
-            <!-- Kappa Display Pill -->
-            <div class="flex items-center space-x-3 bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700">
-              <div class="text-right">
-                <span class="text-[10px] text-slate-400 uppercase font-bold block">Inter-Annotator Agreement</span>
-                <span id="kappa-text" class="text-xs font-bold text-emerald-400">Substantial Agreement</span>
+            <!-- Alignment Stats Header Pill -->
+            <div class="flex items-center space-x-4 bg-slate-800/90 px-4 py-2 rounded-xl border border-slate-700">
+              <div>
+                <span class="text-[10px] text-slate-400 uppercase font-bold block">Rubric MAE</span>
+                <span id="audit-mae-text" class="text-xs font-bold text-indigo-400">--</span>
               </div>
-              <div class="text-2xl font-black text-white pl-2 border-l border-slate-700" id="kappa-value">1.000</div>
+              <div class="pl-3 border-l border-slate-700">
+                <span class="text-[10px] text-slate-400 uppercase font-bold block">Cohen's Kappa (κ)</span>
+                <span id="kappa-value" class="text-sm font-black text-emerald-400">1.000</span>
+              </div>
             </div>
           </div>
 
-          <div class="flex flex-wrap items-center gap-3 pt-2">
-            <span class="text-xs font-medium text-slate-300">Your Verdict as Lead Human Reviewer:</span>
-            <button onclick="submitHumanVote('model_a')" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600/50 transition">Vote Candidate A</button>
-            <button onclick="submitHumanVote('model_b')" class="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600/30 text-purple-300 border border-purple-500/40 hover:bg-purple-600/50 transition">Vote Candidate B</button>
-            <button onclick="submitHumanVote('tie')" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-700/50 text-slate-300 border border-slate-600 hover:bg-slate-700 transition">Vote Tie</button>
-            <span id="human-voted-msg" class="text-xs text-emerald-400 font-semibold pl-2 hidden">✓ Your vote recorded!</span>
-          </div>
-        </div>
-
-        <!-- DPO DATASET EXPORT CARD -->
-        <div class="glass-card rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div class="flex items-center space-x-3">
-            <div class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <i data-lucide="database" class="w-5 h-5"></i>
+          <!-- DYNAMIC 5-TIER HUMAN RUBRIC SCORING GRID -->
+          <div class="space-y-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-300 block">1. Multi-Dimensional Rubric Grading:</span>
+            <div id="human-rubrics-grid" class="space-y-2.5">
+              <!-- Dynamically populated per rubric dimension -->
             </div>
+          </div>
+
+          <!-- OVERALL HUMAN VERDICT & RATIONALE -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
             <div>
-              <span class="text-sm font-bold text-white block">Curated Direct Preference Optimization (DPO) Triplet</span>
-              <span class="text-xs text-slate-400">Ready for Hugging Face TRL (<code class="text-indigo-400">DPOTrainer</code>) fine-tuning</span>
+              <label class="block text-xs font-semibold text-slate-300 mb-2">2. Final Categorical Preference:</label>
+              <div class="grid grid-cols-2 gap-2" id="human-choice-selector">
+                <button type="button" onclick="setHumanChoice('model_a')" id="btn-choice-model_a" class="human-choice-btn py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:border-indigo-500 transition text-center">
+                  Candidate A Preferred
+                </button>
+                <button type="button" onclick="setHumanChoice('model_b')" id="btn-choice-model_b" class="human-choice-btn py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:border-purple-500 transition text-center">
+                  Candidate B Preferred
+                </button>
+                <button type="button" onclick="setHumanChoice('tie')" id="btn-choice-tie" class="human-choice-btn py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:border-amber-500 transition text-center">
+                  Equally Rated (Tie)
+                </button>
+                <button type="button" onclick="setHumanChoice('indeterminate')" id="btn-choice-indeterminate" class="human-choice-btn py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:border-rose-500 transition text-center">
+                  Both Rejected
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-2">3. Lead Annotator Gold-Standard Rationale:</label>
+              <textarea id="human-rationale-input" rows="2" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="Explain the key decisive factors, errors spotted, and why this candidate was chosen..."></textarea>
             </div>
           </div>
-          <button onclick="downloadDPO()" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:border-emerald-500 hover:text-emerald-400 text-xs font-semibold text-slate-200 transition">
-            <i data-lucide="download" class="w-4 h-4"></i>
-            <span>Export DPO JSONL</span>
-          </button>
+
+          <!-- AUDIT ACTIONS & FEEDBACK -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
+            <div id="audit-feedback-badge" class="hidden text-xs font-semibold text-emerald-400 flex items-center space-x-1.5">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              <span id="audit-feedback-text">Human audit recorded successfully!</span>
+            </div>
+            <div class="flex items-center space-x-2.5 ml-auto">
+              <button onclick="submitDetailedHumanAudit()" id="submit-audit-btn" class="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg transition">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                <span>Submit Human Audit & Calibrate</span>
+              </button>
+              <button onclick="downloadHumanDPO()" class="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 hover:border-emerald-500 hover:text-emerald-400 text-xs font-semibold text-slate-200 transition">
+                <i data-lucide="database" class="w-3.5 h-3.5"></i>
+                <span>Export Gold-Standard DPO Triplet</span>
+              </button>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -402,7 +434,7 @@
             <i data-lucide="book-open" class="w-5 h-5 text-indigo-400"></i>
             <span>Enterprise RLHF Evaluation Rubrics & Error Taxonomy</span>
           </h2>
-          <p class="text-xs text-slate-400">Standardized guidelines modeled after Outlier, Scale AI, and Anthropic Constitutional AI</p>
+          <p class="text-xs text-slate-400">Standardized evaluation rubrics aligned with Frontier Model Alignment & Constitutional AI specifications</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="rubrics-cards-container">
@@ -413,39 +445,79 @@
 
   </main>
 
-  <!-- API KEY MODAL -->
+  <!-- API KEY & PROVIDER CONFIG MODAL -->
   <div id="api-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
     <div class="glass-card rounded-2xl p-6 max-w-lg w-full border border-slate-700 shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center space-x-2">
-          <i data-lucide="key" class="w-5 h-5 text-indigo-400"></i>
-          <h3 class="font-bold text-white text-base">Google Gemini API Setup</h3>
+          <i data-lucide="sliders" class="w-5 h-5 text-indigo-400"></i>
+          <h3 class="font-bold text-white text-base">Model Provider & API Configuration</h3>
         </div>
         <button onclick="closeApiKeyModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
 
-      <div class="space-y-3 text-xs text-slate-300">
-        <p class="leading-relaxed">
-          Google Gemini provides a <span class="font-bold text-emerald-400">100% Free Tier</span> with 15 requests per minute, requiring zero credit card or upfront billing.
-        </p>
-        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-          <span class="font-semibold text-slate-200 block">How to get your free key in 60 seconds:</span>
-          <ol class="list-decimal list-inside space-y-1 text-slate-400">
-            <li>Open <a href="https://aistudio.google.com/" target="_blank" class="text-indigo-400 underline">Google AI Studio</a></li>
-            <li>Click <strong>Get API Key</strong> and select <strong>Create API Key</strong></li>
-            <li>Copy and paste the key below (saved locally to your browser or <code class="text-indigo-300">.env</code>):</li>
-          </ol>
+      <div class="space-y-4 text-xs text-slate-300">
+        <!-- Google Gemini Option -->
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-slate-200 flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>Google Gemini</span>
+            </span>
+            <span class="text-[10px] text-emerald-400 font-medium">Cloud • Free Tier Available</span>
+          </div>
+          <p class="text-slate-400 text-[11px] leading-relaxed">
+            Free API keys are available with zero billing requirements at <a href="https://aistudio.google.com/" target="_blank" class="text-indigo-400 underline">Google AI Studio</a>.
+          </p>
+          <div>
+            <label class="block font-medium text-slate-300 mb-1 text-[11px]">Gemini API Key:</label>
+            <input id="modal-api-key-input" type="password" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 code-font focus:outline-none focus:border-indigo-500" placeholder="AIzaSy...">
+          </div>
         </div>
 
-        <div>
-          <label class="block font-semibold text-slate-200 mb-1">Enter Gemini API Key:</label>
-          <input id="modal-api-key-input" type="password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 code-font focus:outline-none focus:border-indigo-500" placeholder="AIzaSy...">
+        <!-- OpenAI Option -->
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-slate-200 flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+              <span>OpenAI / Compatible</span>
+            </span>
+            <span class="text-[10px] text-slate-400 font-medium">Cloud • API Key</span>
+          </div>
+          <div>
+            <label class="block font-medium text-slate-300 mb-1 text-[11px]">OpenAI API Key:</label>
+            <input id="modal-openai-key-input" type="password" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 code-font focus:outline-none focus:border-indigo-500" placeholder="sk-...">
+          </div>
+        </div>
+
+        <!-- Local Ollama Option -->
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-slate-200 flex items-center space-x-1.5">
+              <span id="ollama-status-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span>Local Ollama</span>
+            </span>
+            <span id="ollama-status-text" class="text-[10px] text-slate-400 font-medium">Self-Hosted • 100% Offline</span>
+          </div>
+          <p class="text-slate-400 text-[11px]">
+            Run evaluations completely offline on local open-weight models (e.g. Llama 3.2, Qwen 2.5).
+          </p>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block font-medium text-slate-300 mb-1 text-[11px]">Endpoint URL:</label>
+              <input id="modal-ollama-url-input" type="text" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 code-font focus:outline-none focus:border-indigo-500" value="http://localhost:11434">
+            </div>
+            <div>
+              <label class="block font-medium text-slate-300 mb-1 text-[11px]">Model Name:</label>
+              <input id="modal-ollama-model-input" type="text" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 code-font focus:outline-none focus:border-indigo-500" value="llama3.2" placeholder="llama3.2">
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
         <button onclick="closeApiKeyModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
-        <button onclick="saveApiKey()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-500 transition">Save Key</button>
+        <button onclick="saveAllProviderSettings()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-500 transition">Save Configuration</button>
       </div>
     </div>
   </div>
@@ -453,13 +525,21 @@
   <script>
     let globalPresets = [];
     let currentEvaluation = null;
-    let humanVoteHistory = [];
-    let aiVoteHistory = [];
+    let selectedHumanChoice = "model_a";
+    let humanRubricAudits = {};
+
+    const PRIORITY_ORDER = [
+      { key: 'safety_harm', name: 'Safety & Harm Prevention', badge: 'P1 • Absolute Veto', color: 'text-rose-400', bg: 'bg-rose-500/10' },
+      { key: 'instruction_following', name: 'Instruction Following & Negatives', badge: 'P2 • Hard Compliance', color: 'text-amber-400', bg: 'bg-amber-500/10' },
+      { key: 'factuality', name: 'Factuality & Grounded Reality', badge: 'P3 • Truth Priority', color: 'text-sky-400', bg: 'bg-sky-500/10' },
+      { key: 'reasoning_logic', name: 'Reasoning & Logical Coherence', badge: 'P4 • Causal Logic', color: 'text-purple-400', bg: 'bg-purple-500/10' },
+      { key: 'style_conciseness', name: 'Style, Tone & Conciseness', badge: 'P5 • Tiebreaker', color: 'text-emerald-400', bg: 'bg-emerald-500/10' }
+    ];
 
     // Initialize App
     async function init() {
       lucide.createIcons();
-      checkApiStatus();
+      await checkApiStatus();
       await loadPresets();
       await loadRubrics();
       if (globalPresets.length > 0) {
@@ -471,19 +551,41 @@
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
-        const localKey = localStorage.getItem('gemini_api_key');
-        if (data.gemini_configured || localKey) {
-          document.getElementById('api-status-dot').className = "w-2 h-2 rounded-full bg-emerald-400";
-          document.getElementById('api-status-text').innerText = "Gemini Flash Connected";
-          document.getElementById('judge-provider').value = "gemini";
+        const localGemini = localStorage.getItem('gemini_api_key');
+        const localOpenAI = localStorage.getItem('openai_api_key');
+
+        const dot = document.getElementById('api-status-dot');
+        const text = document.getElementById('api-status-text');
+
+        // Check local Ollama status in modal
+        const ollamaDot = document.getElementById('ollama-status-dot');
+        const ollamaText = document.getElementById('ollama-status-text');
+        if (data.ollama_running) {
+          ollamaDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+          ollamaText.innerText = `Active (${data.ollama_models.length} models installed)`;
         } else {
-          document.getElementById('api-status-dot').className = "w-2 h-2 rounded-full bg-emerald-400";
-          document.getElementById('api-status-text').innerText = "Gemini Flash Ready";
-          document.getElementById('judge-provider').value = "gemini";
+          ollamaDot.className = "w-2 h-2 rounded-full bg-slate-500";
+          ollamaText.innerText = "Daemon Offline (http://localhost:11434)";
+        }
+
+        const currentProvider = document.getElementById('judge-provider').value;
+        if (currentProvider === "gemini") {
+          dot.className = (data.gemini_configured || localGemini) ? "w-2 h-2 rounded-full bg-emerald-400" : "w-2 h-2 rounded-full bg-amber-400";
+          text.innerText = (data.gemini_configured || localGemini) ? "Gemini Flash Ready" : "Gemini API Key Needed";
+        } else if (currentProvider === "openai") {
+          dot.className = (data.openai_configured || localOpenAI) ? "w-2 h-2 rounded-full bg-sky-400" : "w-2 h-2 rounded-full bg-amber-400";
+          text.innerText = (data.openai_configured || localOpenAI) ? "OpenAI Connected" : "OpenAI Key Needed";
+        } else if (currentProvider === "ollama") {
+          dot.className = data.ollama_running ? "w-2 h-2 rounded-full bg-emerald-400" : "w-2 h-2 rounded-full bg-rose-400";
+          text.innerText = data.ollama_running ? "Ollama Active" : "Ollama Offline";
         }
       } catch (e) {
         console.error(e);
       }
+    }
+
+    function onJudgeProviderChanged() {
+      checkApiStatus();
     }
 
     async function loadPresets() {
@@ -526,16 +628,17 @@
       btn.disabled = true;
       statusInd.classList.remove('hidden');
 
+      const provider = document.getElementById('judge-provider').value;
       let elapsed = 0;
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Gemini Evaluating in Parallel (0s)...</span>`;
-      statusMsg.innerText = "Querying Gemini Flash concurrently (Pass 1: A vs B & Pass 2: B vs A)...";
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>AI Judge Evaluating (0s)...</span>`;
+      statusMsg.innerText = `Evaluating dual positional passes (A vs B & B vs A) via ${provider}...`;
       lucide.createIcons();
 
       const timer = setInterval(() => {
         elapsed++;
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Gemini Evaluating in Parallel (${elapsed}s)...</span>`;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>AI Judge Evaluating (${elapsed}s)...</span>`;
         if (elapsed > 4) {
-          statusMsg.innerText = `Scoring 5 rubric dimensions and verifying order invariance (${elapsed}s)...`;
+          statusMsg.innerText = `Running neuro-symbolic verifier & checking 5-tier rubrics (${elapsed}s)...`;
         }
         lucide.createIcons();
       }, 1000);
@@ -547,7 +650,21 @@
       const respB = document.getElementById('response-b-input').value;
       const modelAName = document.getElementById('model-a-name').value;
       const modelBName = document.getElementById('model-b-name').value;
-      const storedKey = localStorage.getItem('gemini_api_key');
+
+      let apiKey = null;
+      let modelName = "gemini-3.5-flash-lite";
+      let baseUrl = null;
+
+      if (provider === "gemini") {
+        apiKey = localStorage.getItem('gemini_api_key');
+        modelName = "gemini-3.5-flash-lite";
+      } else if (provider === "openai") {
+        apiKey = localStorage.getItem('openai_api_key');
+        modelName = "gpt-4o-mini";
+      } else if (provider === "ollama") {
+        baseUrl = localStorage.getItem('ollama_url') || "http://localhost:11434";
+        modelName = localStorage.getItem('ollama_model') || "llama3.2";
+      }
 
       try {
         const res = await fetch('/api/evaluate', {
@@ -561,9 +678,10 @@
             response_b: respB,
             model_a_name: modelAName,
             model_b_name: modelBName,
-            provider: 'gemini',
-            model_name: 'gemini-3.5-flash-lite',
-            api_key: storedKey,
+            provider,
+            model_name: modelName,
+            api_key: apiKey,
+            base_url: baseUrl,
           })
         });
 
@@ -590,16 +708,49 @@
     function displayEvaluationResults(data) {
       document.getElementById('results-panel').classList.remove('hidden');
 
-      // Winner & Confidence
-      const winnerName = data.final_consensus_winner.toUpperCase().replace('_', ' ');
-      document.getElementById('verdict-winner').innerText = `${winnerName} WINS`;
-      document.getElementById('verdict-confidence').innerText = `${Math.round(data.confidence_score * 100)}% Confidence`;
+      // 1. Phrasing & Visual Color Coding for Winner
+      const winner = data.final_consensus_winner;
+      const winnerElement = document.getElementById('verdict-winner');
+      const confElement = document.getElementById('verdict-confidence');
+      const heroCard = winnerElement.closest('.glass-card');
+
+      heroCard.className = heroCard.className.replace(/border-l-\w+-\d+/g, '');
+
+      if (winner === "model_a") {
+        winnerElement.innerText = "CANDIDATE A PREFERRED";
+        winnerElement.className = "text-2xl font-black tracking-tight text-indigo-300";
+        heroCard.classList.add('border-l-4', 'border-l-indigo-500');
+        confElement.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30";
+        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.toUpperCase()} MARGIN`;
+        setHumanChoice('model_a');
+      } else if (winner === "model_b") {
+        winnerElement.innerText = "CANDIDATE B PREFERRED";
+        winnerElement.className = "text-2xl font-black tracking-tight text-purple-300";
+        heroCard.classList.add('border-l-4', 'border-l-purple-500');
+        confElement.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30";
+        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.toUpperCase()} MARGIN`;
+        setHumanChoice('model_b');
+      } else if (winner === "tie") {
+        winnerElement.innerText = "EQUALLY RATED (TIE)";
+        winnerElement.className = "text-2xl font-black tracking-tight text-amber-300";
+        heroCard.classList.add('border-l-4', 'border-l-amber-500');
+        confElement.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30";
+        confElement.innerText = "Equally Balanced Performance";
+        setHumanChoice('tie');
+      } else {
+        winnerElement.innerText = "INDETERMINATE (POSITIONAL BIAS FLIP)";
+        winnerElement.className = "text-2xl font-black tracking-tight text-rose-300";
+        heroCard.classList.add('border-l-4', 'border-l-rose-500');
+        confElement.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        confElement.innerText = "Order Sensitivity (Human Audit Required)";
+        setHumanChoice('indeterminate');
+      }
 
       // Positional Bias Badge
       const posBadge = document.getElementById('positional-bias-badge');
       if (data.positional_bias_detected) {
-        posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20";
-        posBadge.innerHTML = `<i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i><span>Positional Bias Detected! (Order Changed Verdict)</span>`;
+        posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20";
+        posBadge.innerHTML = `<i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i><span>Positional Inconsistency (Order Swapped Verdict)</span>`;
       } else {
         posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
         posBadge.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Order Invariant (A/B = B/A)</span>`;
@@ -616,21 +767,29 @@
       }
 
       // Rationale
-      document.getElementById('verdict-rationale').innerText = data.summary_critique;
+      document.getElementById('verdict-rationale').innerText = data.forward_verdict.overall_reasoning || data.summary_critique;
 
-      // Dimension Scores Bars
+      // 2. Render Rubric Dimensions Sorted in Strict Priority Hierarchy
+      const rawScores = data.forward_verdict.dimension_scores || [];
+      const scoresMap = {};
+      rawScores.forEach(s => { scoresMap[s.dimension] = s; });
+
       const dimContainer = document.getElementById('dimension-bars');
       dimContainer.innerHTML = '';
-      const scores = data.forward_verdict.dimension_scores || [];
-      scores.forEach(ds => {
+
+      PRIORITY_ORDER.forEach(p => {
+        const ds = scoresMap[p.key] || { score_a: 3.0, score_b: 3.0, justification: "Neutral evaluation." };
         const pctA = (ds.score_a / 5.0) * 100;
         const pctB = (ds.score_b / 5.0) * 100;
-        const name = ds.dimension.replace('_', ' ').toUpperCase();
+
         dimContainer.innerHTML += `
-          <div class="space-y-1">
-            <div class="flex justify-between text-xs">
-              <span class="font-medium text-slate-300">${name}</span>
-              <span class="text-slate-400">A: <b class="text-indigo-400">${ds.score_a}</b> / B: <b class="text-purple-400">${ds.score_b}</b></span>
+          <div class="space-y-1.5 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+            <div class="flex items-center justify-between text-xs">
+              <div class="flex items-center space-x-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${p.color} ${p.bg} border border-slate-700">${p.badge}</span>
+                <span class="font-semibold text-slate-200">${p.name}</span>
+              </div>
+              <span class="text-slate-400 font-mono">A: <b class="text-indigo-400">${ds.score_a.toFixed(1)}</b> | B: <b class="text-purple-400">${ds.score_b.toFixed(1)}</b></span>
             </div>
             <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden flex">
               <div class="bg-indigo-500 h-2 transition-all" style="width: ${pctA/2}%"></div>
@@ -641,7 +800,7 @@
         `;
       });
 
-      // Errors
+      // 3. Error Violations
       const errA = document.getElementById('errors-model-a');
       const errorsListA = data.forward_verdict.detected_errors_model_a || [];
       errA.innerHTML = errorsListA.length ? errorsListA.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 border border-red-500/30">${e}</span>`).join('') : '<span class="text-xs text-slate-500 italic">None detected</span>';
@@ -650,70 +809,188 @@
       const errorsListB = data.forward_verdict.detected_errors_model_b || [];
       errB.innerHTML = errorsListB.length ? errorsListB.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 border border-red-500/30">${e}</span>`).join('') : '<span class="text-xs text-slate-500 italic">None detected</span>';
 
-      document.getElementById('human-voted-msg').classList.add('hidden');
+      // 4. Populate Human Multi-Rubric Audit Grid
+      renderHumanAuditStation(scoresMap);
+
       lucide.createIcons();
       document.getElementById('results-panel').scrollIntoView({ behavior: 'smooth' });
     }
 
-    async function submitHumanVote(vote) {
-      if (!currentEvaluation) return;
-      const aiVerdict = currentEvaluation.final_consensus_winner;
+    function renderHumanAuditStation(scoresMap) {
+      const container = document.getElementById('human-rubrics-grid');
+      container.innerHTML = '';
+      humanRubricAudits = {};
 
-      try {
-        const res = await fetch('/api/agreement', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sample_id: currentEvaluation.sample_id,
-            human_vote: vote,
-            ai_verdict: aiVerdict,
-            history_human_votes: humanVoteHistory,
-            history_ai_votes: aiVoteHistory
-          })
-        });
+      PRIORITY_ORDER.forEach(p => {
+        const ds = scoresMap[p.key] || { score_a: 3.0, score_b: 3.0 };
+        humanRubricAudits[p.key] = {
+          dimension: p.key,
+          score_a: ds.score_a,
+          score_b: ds.score_b,
+          agreed_with_ai: true,
+          comment: ""
+        };
 
-        const data = await res.json();
-        humanVoteHistory.push(vote);
-        aiVoteHistory.push(aiVerdict);
+        container.innerHTML += `
+          <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2" id="audit-card-${p.key}">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex items-center space-x-2">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${p.color} ${p.bg}">${p.badge}</span>
+                <span class="font-semibold text-slate-200 text-xs">${p.name}</span>
+                <span class="text-[11px] text-slate-500 font-mono">(AI: A=${ds.score_a} / B=${ds.score_b})</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button type="button" onclick="toggleRubricAgreement('${p.key}', true)" id="btn-agree-${p.key}" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  ✓ Agree with AI
+                </button>
+                <button type="button" onclick="toggleRubricAgreement('${p.key}', false)" id="btn-override-${p.key}" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 hover:text-white">
+                  Override Scores
+                </button>
+              </div>
+            </div>
 
-        document.getElementById('kappa-value').innerText = data.cohens_kappa.toFixed(3);
-        document.getElementById('kappa-text').innerText = `${data.interpretation} (${data.agreement_rate}% Match)`;
-        document.getElementById('human-voted-msg').classList.remove('hidden');
-      } catch (err) {
-        console.error(err);
+            <!-- Override score inputs (hidden by default) -->
+            <div id="override-inputs-${p.key}" class="hidden pt-2 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-medium text-indigo-400 mb-1">Human Score Candidate A (1.0 - 5.0):</label>
+                <input type="number" step="0.5" min="1.0" max="5.0" value="${ds.score_a}" onchange="updateHumanRubricScore('${p.key}', 'score_a', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 code-font">
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-purple-400 mb-1">Human Score Candidate B (1.0 - 5.0):</label>
+                <input type="number" step="0.5" min="1.0" max="5.0" value="${ds.score_b}" onchange="updateHumanRubricScore('${p.key}', 'score_b', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 code-font">
+              </div>
+            </div>
+
+            <input type="text" onchange="updateHumanRubricComment('${p.key}', this.value)" placeholder="Optional annotator critique on ${p.name}..." class="w-full bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] text-slate-300 focus:outline-none focus:border-indigo-500">
+          </div>
+        `;
+      });
+    }
+
+    function toggleRubricAgreement(dimKey, agree) {
+      humanRubricAudits[dimKey].agreed_with_ai = agree;
+      const agreeBtn = document.getElementById(`btn-agree-${dimKey}`);
+      const overrideBtn = document.getElementById(`btn-override-${dimKey}`);
+      const inputDiv = document.getElementById(`override-inputs-${dimKey}`);
+
+      if (agree) {
+        agreeBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+        overrideBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 hover:text-white";
+        inputDiv.classList.add('hidden');
+      } else {
+        agreeBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 hover:text-white";
+        overrideBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        inputDiv.classList.remove('hidden');
       }
     }
 
-    function downloadDPO() {
-      if (!currentEvaluation) return;
-      const samplePrompt = document.getElementById('prompt-input').value;
-      const respA = document.getElementById('response-a-input').value;
-      const respB = document.getElementById('response-b-input').value;
-
-      let chosen = respA, rejected = respB;
-      if (currentEvaluation.final_consensus_winner === "model_b") {
-        chosen = respB;
-        rejected = respA;
+    function updateHumanRubricScore(dimKey, field, val) {
+      const parsed = parseFloat(val);
+      if (!isNaN(parsed)) {
+        humanRubricAudits[dimKey][field] = Math.max(1.0, Math.min(5.0, parsed));
       }
+    }
 
-      const triplet = {
-        prompt: samplePrompt,
-        chosen: chosen,
-        rejected: rejected,
-        margin: currentEvaluation.forward_verdict.margin,
-        justification: currentEvaluation.summary_critique,
-        metadata: {
-          confidence_score: currentEvaluation.confidence_score,
-          winner: currentEvaluation.final_consensus_winner
-        }
+    function updateHumanRubricComment(dimKey, val) {
+      humanRubricAudits[dimKey].comment = val;
+    }
+
+    function setHumanChoice(choice) {
+      selectedHumanChoice = choice;
+      document.querySelectorAll('.human-choice-btn').forEach(b => {
+        b.className = "human-choice-btn py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:border-slate-500 transition text-center";
+      });
+
+      const selectedBtn = document.getElementById(`btn-choice-${choice}`);
+      if (selectedBtn) {
+        if (choice === 'model_a') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-indigo-500 bg-indigo-500/20 text-indigo-300 font-bold text-xs text-center";
+        else if (choice === 'model_b') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-purple-500 bg-purple-500/20 text-purple-300 font-bold text-xs text-center";
+        else if (choice === 'tie') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-amber-500 bg-amber-500/20 text-amber-300 font-bold text-xs text-center";
+        else selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-rose-500 bg-rose-500/20 text-rose-300 font-bold text-xs text-center";
+      }
+    }
+
+    async function submitDetailedHumanAudit() {
+      if (!currentEvaluation) return;
+
+      const rationale = document.getElementById('human-rationale-input').value;
+      const rubricsList = Object.values(humanRubricAudits);
+
+      const aiScoresDict = {};
+      (currentEvaluation.forward_verdict.dimension_scores || []).forEach(ds => {
+        aiScoresDict[ds.dimension] = { score_a: ds.score_a, score_b: ds.score_b };
+      });
+
+      const payload = {
+        sample_id: currentEvaluation.sample_id,
+        prompt: document.getElementById('prompt-input').value,
+        response_a: document.getElementById('response-a-input').value,
+        response_b: document.getElementById('response-b-input').value,
+        model_a_name: document.getElementById('model-a-name').value,
+        model_b_name: document.getElementById('model-b-name').value,
+        human_overall_winner: selectedHumanChoice,
+        human_rubrics: rubricsList,
+        human_rationale: rationale,
+        ai_verdict: currentEvaluation.final_consensus_winner,
+        ai_rubric_scores: aiScoresDict,
       };
 
-      const blob = new Blob([JSON.stringify(triplet, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `dpo_triplet_${Date.now()}.json`;
-      a.click();
+      try {
+        const res = await fetch('/api/audit/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        document.getElementById('kappa-value').innerText = data.cohens_kappa.toFixed(3);
+        document.getElementById('audit-mae-text').innerText = `${data.rubric_mae.toFixed(2)} pts`;
+
+        const badge = document.getElementById('audit-feedback-badge');
+        const badgeText = document.getElementById('audit-feedback-text');
+        badge.classList.remove('hidden');
+        badgeText.innerText = `Audit Saved! Rubric Alignment: ${data.rubric_alignment_rate}% • Kappa: ${data.cohens_kappa.toFixed(3)} (${data.kappa_interpretation})`;
+        lucide.createIcons();
+      } catch (err) {
+        alert("Failed to submit audit: " + err);
+      }
+    }
+
+    async function downloadHumanDPO() {
+      if (!currentEvaluation) return;
+
+      const rubricsList = Object.values(humanRubricAudits);
+      const payload = {
+        sample_id: currentEvaluation.sample_id,
+        prompt: document.getElementById('prompt-input').value,
+        response_a: document.getElementById('response-a-input').value,
+        response_b: document.getElementById('response-b-input').value,
+        model_a_name: document.getElementById('model-a-name').value,
+        model_b_name: document.getElementById('model-b-name').value,
+        human_overall_winner: selectedHumanChoice,
+        human_rubrics: rubricsList,
+        human_rationale: document.getElementById('human-rationale-input').value,
+        ai_verdict: currentEvaluation.final_consensus_winner,
+        ai_rubric_scores: {},
+      };
+
+      try {
+        const res = await fetch('/api/audit/export-dpo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const triplet = await res.json();
+        const blob = new Blob([JSON.stringify(triplet, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `human_gold_dpo_${Date.now()}.json`;
+        a.click();
+      } catch (err) {
+        alert("Failed to export DPO triplet: " + err);
+      }
     }
 
     async function loadRubrics() {
@@ -723,22 +1000,25 @@
         const container = document.getElementById('rubrics-cards-container');
         container.innerHTML = '';
 
-        for (const [dim, info] of Object.entries(data.rubric_criteria)) {
+        (data.rubric_hierarchy || []).forEach(h => {
+          const info = data.rubric_criteria[h.dimension] || {};
           container.innerHTML += `
             <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
-              <div class="flex items-center space-x-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
-                <span class="font-bold text-white text-sm">${dim.toUpperCase().replace('_', ' ')}</span>
+              <div class="flex items-center justify-between">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Priority ${h.priority}</span>
+                <span class="text-xs text-slate-400 font-semibold">${h.tier_name}</span>
               </div>
-              <p class="text-xs text-slate-400">${info.description}</p>
+              <h3 class="font-bold text-white text-sm">${h.dimension.toUpperCase().replace('_', ' ')}</h3>
+              <p class="text-xs text-slate-300 leading-relaxed font-medium">${h.rule}</p>
+              <p class="text-xs text-slate-400">${info.description || ''}</p>
               <div class="space-y-1.5 text-[11px] pt-1">
-                <div class="p-2 rounded bg-red-950/20 border border-red-900/30 text-red-300"><b>1/5 (Fail):</b> ${info.score_1}</div>
-                <div class="p-2 rounded bg-slate-800/50 text-slate-300"><b>3/5 (Acceptable):</b> ${info.score_3}</div>
-                <div class="p-2 rounded bg-emerald-950/20 border border-emerald-900/30 text-emerald-300"><b>5/5 (Exemplary):</b> ${info.score_5}</div>
+                <div class="p-2 rounded bg-red-950/20 border border-red-900/30 text-red-300"><b>1/5 (Fail):</b> ${info.score_1 || ''}</div>
+                <div class="p-2 rounded bg-slate-800/50 text-slate-300"><b>3/5 (Acceptable):</b> ${info.score_3 || ''}</div>
+                <div class="p-2 rounded bg-emerald-950/20 border border-emerald-900/30 text-emerald-300"><b>5/5 (Exemplary):</b> ${info.score_5 || ''}</div>
               </div>
             </div>
           `;
-        }
+        });
       } catch (err) {
         console.error(err);
       }
@@ -778,9 +1058,12 @@
     }
 
     function openApiKeyModal() {
-      const key = localStorage.getItem('gemini_api_key') || "";
-      document.getElementById('modal-api-key-input').value = key;
+      document.getElementById('modal-api-key-input').value = localStorage.getItem('gemini_api_key') || "";
+      document.getElementById('modal-openai-key-input').value = localStorage.getItem('openai_api_key') || "";
+      document.getElementById('modal-ollama-url-input').value = localStorage.getItem('ollama_url') || "http://localhost:11434";
+      document.getElementById('modal-ollama-model-input').value = localStorage.getItem('ollama_model') || "llama3.2";
       document.getElementById('api-modal').classList.remove('hidden');
+      checkApiStatus();
       lucide.createIcons();
     }
 
@@ -788,13 +1071,21 @@
       document.getElementById('api-modal').classList.add('hidden');
     }
 
-    function saveApiKey() {
-      const val = document.getElementById('modal-api-key-input').value.trim();
-      if (val) {
-        localStorage.setItem('gemini_api_key', val);
-      } else {
-        localStorage.removeItem('gemini_api_key');
-      }
+    function saveAllProviderSettings() {
+      const gemini = document.getElementById('modal-api-key-input').value.trim();
+      const openai = document.getElementById('modal-openai-key-input').value.trim();
+      const ollamaUrl = document.getElementById('modal-ollama-url-input').value.trim();
+      const ollamaModel = document.getElementById('modal-ollama-model-input').value.trim();
+
+      if (gemini) localStorage.setItem('gemini_api_key', gemini);
+      else localStorage.removeItem('gemini_api_key');
+
+      if (openai) localStorage.setItem('openai_api_key', openai);
+      else localStorage.removeItem('openai_api_key');
+
+      if (ollamaUrl) localStorage.setItem('ollama_url', ollamaUrl);
+      if (ollamaModel) localStorage.setItem('ollama_model', ollamaModel);
+
       closeApiKeyModal();
       checkApiStatus();
     }

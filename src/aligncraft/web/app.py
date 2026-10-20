@@ -18,10 +18,17 @@ from aligncraft.exporters.dpo_exporter import DPOExporter
 from aligncraft.judges.debiaser import DebiasingJudge
 from aligncraft.judges.pairwise import PairwiseJudge
 from aligncraft.models.factory import MockChatModel, get_chat_model
-from aligncraft.rubrics.definitions import ERROR_TAXONOMY_DESCRIPTIONS, RUBRIC_CRITERIA
+from aligncraft.rubrics.definitions import (
+    ERROR_TAXONOMY_DESCRIPTIONS,
+    RUBRIC_CRITERIA,
+    RUBRIC_PRIORITY_HIERARCHY,
+)
 from aligncraft.runner import EvaluationRunner
 from aligncraft.schemas.models import (
     DebiasedEvaluation,
+    DetailedHumanAuditRequest,
+    DPOTriplet,
+    HumanRubricAudit,
     PreferenceChoice,
     PromptSample,
     RatingDimension,
@@ -298,6 +305,7 @@ class EvaluationRequest(BaseModel):
     provider: str = "gemini"
     model_name: str = "gemini-3.5-flash-lite"
     api_key: Optional[str] = None
+    base_url: Optional[str] = None
 
 
 class HumanVoteRequest(BaseModel):
@@ -324,9 +332,24 @@ def get_status():
     load_dotenv(override=True)
     gemini_key = os.getenv("GEMINI_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
+
+    # Check local Ollama daemon
+    ollama_running = False
+    ollama_models = []
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=0.8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            ollama_models = [m.get("name") for m in data.get("models", [])]
+            ollama_running = True
+    except Exception:
+        ollama_running = False
+
     return {
         "gemini_configured": bool(gemini_key and len(gemini_key.strip()) > 5),
         "openai_configured": bool(openai_key and len(openai_key.strip()) > 5),
+        "ollama_running": ollama_running,
+        "ollama_models": ollama_models,
         "default_provider": "gemini",
         "default_model": "gemini-3.5-flash-lite",
     }
@@ -343,9 +366,18 @@ def get_presets():
 
 @app.get("/api/rubrics")
 def get_rubrics():
-    """Returns evaluation rubrics and error taxonomy descriptions."""
+    """Returns evaluation rubrics, priority hierarchy, and error taxonomy descriptions."""
     return {
         "rubric_criteria": {k.value: v for k, v in RUBRIC_CRITERIA.items()},
+        "rubric_hierarchy": [
+            {
+                "priority": h["priority"],
+                "dimension": h["dimension"].value,
+                "tier_name": h["tier_name"],
+                "rule": h["rule"]
+            }
+            for h in RUBRIC_PRIORITY_HIERARCHY
+        ],
         "error_taxonomy": {k.value: v for k, v in ERROR_TAXONOMY_DESCRIPTIONS.items()},
     }
 
@@ -377,6 +409,9 @@ def evaluate_pair(req: EvaluationRequest):
             if not api_key:
                 raise HTTPException(status_code=400, detail="OpenAI API key not found.")
             chat_model = get_chat_model("openai", req.model_name, api_key=api_key)
+        elif provider == "ollama":
+            base_url = req.base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            chat_model = get_chat_model("ollama", req.model_name or "llama3.2", base_url=base_url)
         else:
             chat_model = get_chat_model("gemini", "gemini-3.5-flash-lite", api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -401,6 +436,146 @@ def evaluate_pair(req: EvaluationRequest):
             status_code=500,
             detail=f"Evaluation failed: {str(e)}"
         )
+
+
+AUDITS_FILE = Path(__file__).parents[3] / "data" / "human_audits.jsonl"
+
+
+@app.post("/api/audit/submit")
+def submit_human_audit(req: DetailedHumanAuditRequest):
+    """
+    Records a detailed multi-rubric human annotator audit, compares against AI consensus,
+    and returns updated inter-annotator agreement statistics.
+    """
+    AUDITS_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    # 1. Rubric comparisons
+    rubric_diffs = []
+    total_abs_diff = 0.0
+    rubric_match_count = 0
+    total_rubric_points = 0
+
+    for hr in req.human_rubrics:
+        dim_key = hr.dimension.value if hasattr(hr.dimension, "value") else str(hr.dimension)
+        ai_scores = req.ai_rubric_scores.get(dim_key, {"score_a": 3.0, "score_b": 3.0})
+        ai_a = float(ai_scores.get("score_a", 3.0))
+        ai_b = float(ai_scores.get("score_b", 3.0))
+
+        diff_a = abs(hr.score_a - ai_a)
+        diff_b = abs(hr.score_b - ai_b)
+        total_abs_diff += (diff_a + diff_b)
+        total_rubric_points += 2
+
+        aligned = (diff_a <= 0.5) and (diff_b <= 0.5)
+        if aligned:
+            rubric_match_count += 1
+
+        rubric_diffs.append({
+            "dimension": dim_key,
+            "human_score_a": hr.score_a,
+            "human_score_b": hr.score_b,
+            "ai_score_a": ai_a,
+            "ai_score_b": ai_b,
+            "diff_a": round(diff_a, 2),
+            "diff_b": round(diff_b, 2),
+            "aligned": aligned,
+            "agreed_with_ai": hr.agreed_with_ai,
+            "comment": hr.comment,
+        })
+
+    mae = (total_abs_diff / total_rubric_points) if total_rubric_points > 0 else 0.0
+    rubric_alignment_rate = (rubric_match_count / len(req.human_rubrics) * 100.0) if req.human_rubrics else 0.0
+
+    winner_matched = (req.human_overall_winner.value == req.ai_verdict)
+
+    # Save to disk
+    audit_record = {
+        "sample_id": req.sample_id,
+        "prompt": req.prompt,
+        "human_winner": req.human_overall_winner.value,
+        "ai_verdict": req.ai_verdict,
+        "winner_matched": winner_matched,
+        "rubric_mae": round(mae, 2),
+        "rubric_alignment_rate": round(rubric_alignment_rate, 1),
+        "human_rationale": req.human_rationale,
+        "rubric_details": rubric_diffs,
+    }
+
+    with open(AUDITS_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(audit_record) + "\n")
+
+    # Read all historical audits to compute overall Cohen's Kappa
+    all_human_winners = []
+    all_ai_winners = []
+    total_audits = 0
+    if AUDITS_FILE.exists():
+        with open(AUDITS_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        rec = json.loads(line)
+                        all_human_winners.append(rec["human_winner"])
+                        all_ai_winners.append(rec["ai_verdict"])
+                        total_audits += 1
+                    except Exception:
+                        pass
+
+    if len(all_human_winners) >= 2:
+        kappa, interp = calculate_cohens_kappa(all_ai_winners, all_human_winners)
+    else:
+        kappa = 1.0 if winner_matched else 0.0
+        interp = "Single sample evaluated"
+
+    return {
+        "status": "success",
+        "winner_matched": winner_matched,
+        "cohens_kappa": round(kappa, 3),
+        "kappa_interpretation": interp,
+        "rubric_mae": round(mae, 2),
+        "rubric_alignment_rate": round(rubric_alignment_rate, 1),
+        "total_audits_recorded": total_audits,
+        "detailed_comparison": rubric_diffs,
+    }
+
+
+@app.post("/api/audit/export-dpo")
+def export_human_dpo(req: DetailedHumanAuditRequest):
+    """
+    Generates a gold-standard DPO triplet formatted for Hugging Face TRL based on
+    human annotator preferences and critique.
+    """
+    human_win = req.human_overall_winner
+    if human_win == PreferenceChoice.MODEL_A:
+        chosen = req.response_a
+        rejected = req.response_b
+        margin = "decisive"
+    elif human_win == PreferenceChoice.MODEL_B:
+        chosen = req.response_b
+        rejected = req.response_a
+        margin = "decisive"
+    else:
+        # Tie or both rejected: return A as chosen, B as rejected with tie margin
+        chosen = req.response_a
+        rejected = req.response_b
+        margin = "slight"
+
+    dpo_triplet = {
+        "prompt": req.prompt,
+        "chosen": chosen,
+        "rejected": rejected,
+        "margin": margin,
+        "justification": req.human_rationale or f"Human gold-standard preference: {human_win.value.upper()}",
+        "metadata": {
+            "source": "aligncraft_human_audit",
+            "annotator_type": "human_gold_standard",
+            "human_verdict": human_win.value,
+            "ai_consensus_verdict": req.ai_verdict,
+            "model_a_name": req.model_a_name,
+            "model_b_name": req.model_b_name,
+        }
+    }
+    return dpo_triplet
 
 
 @app.post("/api/agreement")

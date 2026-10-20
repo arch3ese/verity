@@ -86,9 +86,9 @@ def test_debiaser_detects_positional_bias():
 def test_verbosity_bias_flag():
     """Test that an excessively long response without factual advantage is flagged."""
     def verbose_favored_handler(msg: str) -> str:
-        # Check which candidate is verbose in this pass
-        cand_a_part = msg.split("### CANDIDATE B:")[0]
-        cand_a_is_verbose = len(cand_a_part) > 500
+        # Check which candidate is verbose in this pass between candidate markers
+        cand_a_text = msg.split("### CANDIDATE A:")[1].split("### CANDIDATE B:")[0]
+        cand_a_is_verbose = len(cand_a_text) > 300
         winner = "model_a" if cand_a_is_verbose else "model_b"
 
         return json.dumps({
@@ -107,9 +107,9 @@ def test_verbosity_bias_flag():
     debiaser = DebiasingJudge(judge, verbosity_ratio_threshold=2.0)
 
     sample = PromptSample(id="test-verbosity", prompt="Brief question")
-    # Response A is 4x longer than Response B
-    long_response_a = "Word " * 200
-    short_response_b = "Word " * 20
+    # Response A is much longer than Response B with realistic diverse words
+    long_response_a = "This is a comprehensive and detailed explanation of the concept with many sentences and explanations. " * 15
+    short_response_b = "This is a direct and concise response answering the prompt."
 
     eval_result = debiaser.evaluate_with_debiasing(
         sample=sample,

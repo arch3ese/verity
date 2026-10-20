@@ -26,6 +26,7 @@ class ErrorTag(str, Enum):
     REPETITION = "repetition"
     SAFETY_VIOLATION = "safety_violation"
     OVER_REFUSAL = "over_refusal"
+    SEMANTIC_VOID = "semantic_void"
 
 
 class PreferenceChoice(str, Enum):
@@ -126,3 +127,28 @@ class BenchmarkSummary(BaseModel):
     )
     average_dimension_scores_model_a: Dict[str, float] = Field(default_factory=dict)
     average_dimension_scores_model_b: Dict[str, float] = Field(default_factory=dict)
+
+
+class HumanRubricAudit(BaseModel):
+    """Human annotator score and review on a single rubric dimension."""
+    dimension: RatingDimension
+    score_a: float = Field(ge=1.0, le=5.0)
+    score_b: float = Field(ge=1.0, le=5.0)
+    agreed_with_ai: bool = True
+    comment: Optional[str] = None
+
+
+class DetailedHumanAuditRequest(BaseModel):
+    """Complete human annotator audit payload including multi-rubric grading and feedback."""
+    sample_id: str
+    prompt: str
+    response_a: str
+    response_b: str
+    model_a_name: str = "Candidate A"
+    model_b_name: str = "Candidate B"
+    human_overall_winner: PreferenceChoice
+    human_rubrics: List[HumanRubricAudit] = Field(default_factory=list)
+    human_rationale: Optional[str] = None
+    ai_verdict: str
+    ai_rubric_scores: Dict[str, Dict[str, float]] = Field(default_factory=dict)
+

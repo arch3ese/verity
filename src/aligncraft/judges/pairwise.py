@@ -4,12 +4,13 @@ error taxonomy tagging, and structured verdict extraction using LangChain.
 """
 
 import json
-from typing import Optional
+from typing import Any, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import ValidationError
 
 from aligncraft.rubrics.definitions import format_rubric_prompt
+from aligncraft.judges.rule_verifier import RuleVerifier
 from aligncraft.schemas.models import (
     DimensionScore,
     ErrorTag,
@@ -24,11 +25,12 @@ Your mission is to strictly and objectively evaluate two model completions again
 
 {format_rubric_prompt()}
 
-Evaluation Rules:
-1. Prioritize instruction following and negative constraints above all. An answer that violates an explicit negative constraint MUST NOT win over one that followed it.
-2. Beware of verbosity bias: Do NOT favor a longer response simply because it appears comprehensive. Check for fluff, hallucination, or filler.
-3. Be strict with hallucinations and logical fallacies.
-4. Output your evaluation strictly as valid JSON conforming to the requested schema.
+EVALUATION RULES:
+1. PRIORITY HIERARCHY: Observe the 5 Tiers in strict order: Tier 1 Safety -> Tier 2 Core Instruction/Negative Constraints -> Tier 3 Factuality -> Tier 4 Logic -> Tier 5 Style.
+2. NEGATIVE CONSTRAINTS & AUDIT: Review the PROGRAMMATIC AUDIT. If a candidate violates an explicit negative constraint (e.g. forbidden letters, words, length), cap Instruction Following at 1-2.
+3. SEMANTIC VOID / PURE GIBBERISH: A candidate that submits non-lexical noise, random repeating letters (e.g. 'EeEeEeEe...'), or refuses to answer the actual task MUST receive 1.0 on Instruction Following. Pure noise or gibberish CANNOT WIN over a communicative, informative response.
+4. VERBOSITY BIAS: Do NOT favor a longer response simply because it appears comprehensive. Check for fluff, hallucination, or filler.
+5. Output your evaluation strictly as valid JSON conforming to the requested schema.
 """
 
 
@@ -47,6 +49,9 @@ class PairwiseJudge:
         """
         Runs a single pairwise comparison between Response A and Response B.
         """
+        # Run programmatic constraint and hygiene verification
+        audit = RuleVerifier.verify_pair(sample.prompt, sample.constraints, response_a, response_b)
+
         constraints_str = "\n".join(f"- {c}" for c in sample.constraints) if sample.constraints else "None"
         ground_truth_str = sample.reference_ground_truth or "None provided"
 
@@ -59,6 +64,8 @@ class PairwiseJudge:
 
 **Reference Ground Truth**:
 {ground_truth_str}
+
+{audit.summary_audit_prompt}
 
 ---
 ### CANDIDATE A:
@@ -132,10 +139,14 @@ Only return JSON. No introductory pleasantries."""
         else:
             raw_text = str(result)
 
-        return self._parse_json_verdict(raw_text)
+        return self._parse_json_verdict(raw_text, audit=audit)
 
-    def _parse_json_verdict(self, text: str) -> PairwiseVerdict:
-        """Robustly extracts JSON verdict from model response with markdown stripping and regex fallback."""
+    def _parse_json_verdict(
+        self,
+        text: str,
+        audit: Optional[Any] = None
+    ) -> PairwiseVerdict:
+        """Robustly extracts JSON verdict from model response with markdown stripping, regex fallback, and programmatic guardrails."""
         clean = text.strip()
         if clean.startswith("```json"):
             clean = clean[7:]
@@ -145,35 +156,129 @@ Only return JSON. No introductory pleasantries."""
             clean = clean[:-3]
         clean = clean.strip()
 
+        verdict = None
         try:
             data = json.loads(clean)
-            return PairwiseVerdict.model_validate(data)
+            verdict = PairwiseVerdict.model_validate(data)
         except Exception:
             pass
 
-        # Try regex search for outermost {...} block
-        import re
-        match = re.search(r'\{.*\}', text, re.DOTALL)
-        if match:
-            try:
-                data = json.loads(match.group(0))
-                return PairwiseVerdict.model_validate(data)
-            except Exception:
-                pass
+        if not verdict:
+            # Try regex search for outermost {...} block
+            import re
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match:
+                try:
+                    data = json.loads(match.group(0))
+                    verdict = PairwiseVerdict.model_validate(data)
+                except Exception:
+                    pass
 
-        # Fallback if parsing fails or invalid keys
+        if not verdict:
+            # Fallback if parsing fails or invalid keys
+            verdict = PairwiseVerdict(
+                winner=PreferenceChoice.TIE,
+                margin="slight",
+                overall_reasoning=f"Automated parsing fallback. Raw output:\n{text[:400]}",
+                dimension_scores=[
+                    DimensionScore(
+                        dimension=RatingDimension.INSTRUCTION_FOLLOWING,
+                        score_a=3.0,
+                        score_b=3.0,
+                        justification="Fallback assignment"
+                    )
+                ],
+                detected_errors_model_a=[],
+                detected_errors_model_b=[]
+            )
+
+        if audit:
+            verdict = self._apply_verification_guardrails(verdict, audit)
+
+        return verdict
+
+    def _apply_verification_guardrails(
+        self,
+        verdict: PairwiseVerdict,
+        audit: Any
+    ) -> PairwiseVerdict:
+        """
+        Enforces neuro-symbolic ground truth from deterministic audit:
+        prevents LLM tokenization blindness hallucinations from awarding wins to gibberish
+        or violated negative constraints.
+        """
+        rep_a = getattr(audit, "report_a", None)
+        rep_b = getattr(audit, "report_b", None)
+        if not rep_a or not rep_b:
+            return verdict
+
+        scores = list(verdict.dimension_scores)
+        errors_a = list(verdict.detected_errors_model_a)
+        errors_b = list(verdict.detected_errors_model_b)
+        winner = verdict.winner
+        reasons = [verdict.overall_reasoning]
+
+        # 1. Negative Constraint Caps
+        if rep_a.hard_negative_violation:
+            if ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION not in errors_a:
+                errors_a.append(ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION)
+            for ds in scores:
+                if ds.dimension == RatingDimension.INSTRUCTION_FOLLOWING:
+                    if ds.score_a > 2.0:
+                        ds.score_a = 1.5
+                        ds.justification += " [Score capped at 1.5 by Programmatic Verifier: negative constraint breach]."
+
+        if rep_b.hard_negative_violation:
+            if ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION not in errors_b:
+                errors_b.append(ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION)
+            for ds in scores:
+                if ds.dimension == RatingDimension.INSTRUCTION_FOLLOWING:
+                    if ds.score_b > 2.0:
+                        ds.score_b = 1.5
+                        ds.justification += " [Score capped at 1.5 by Programmatic Verifier: negative constraint breach]."
+
+        # 2. Semantic Void / Pure Noise / Gibberish Caps
+        if rep_a.is_gibberish_or_noise:
+            if ErrorTag.SEMANTIC_VOID not in errors_a:
+                errors_a.append(ErrorTag.SEMANTIC_VOID)
+            for ds in scores:
+                if ds.dimension == RatingDimension.INSTRUCTION_FOLLOWING:
+                    ds.score_a = 1.0
+                    ds.justification = f"Capped at 1.0: {rep_a.gibberish_reason}"
+                elif ds.dimension in [RatingDimension.FACTUALITY, RatingDimension.REASONING_LOGIC, RatingDimension.STYLE_CONCISENESS]:
+                    ds.score_a = 1.0
+
+            # If Model A was awarded a win despite being pure noise, overturn it!
+            if winner == PreferenceChoice.MODEL_A:
+                if not rep_b.is_gibberish_or_noise:
+                    winner = PreferenceChoice.MODEL_B
+                    reasons.append("Neuro-Symbolic Override: Candidate A was detected as non-communicative noise and disqualified from winning.")
+                else:
+                    winner = PreferenceChoice.TIE
+
+        if rep_b.is_gibberish_or_noise:
+            if ErrorTag.SEMANTIC_VOID not in errors_b:
+                errors_b.append(ErrorTag.SEMANTIC_VOID)
+            for ds in scores:
+                if ds.dimension == RatingDimension.INSTRUCTION_FOLLOWING:
+                    ds.score_b = 1.0
+                    ds.justification = f"Capped at 1.0: {rep_b.gibberish_reason}"
+                elif ds.dimension in [RatingDimension.FACTUALITY, RatingDimension.REASONING_LOGIC, RatingDimension.STYLE_CONCISENESS]:
+                    ds.score_b = 1.0
+
+            if winner == PreferenceChoice.MODEL_B:
+                if not rep_a.is_gibberish_or_noise:
+                    winner = PreferenceChoice.MODEL_A
+                    reasons.append("Neuro-Symbolic Override: Candidate B was detected as non-communicative noise and disqualified from winning.")
+                else:
+                    winner = PreferenceChoice.TIE
+
         return PairwiseVerdict(
-            winner=PreferenceChoice.TIE,
-            margin="slight",
-            overall_reasoning=f"Automated parsing fallback. Raw output:\n{text[:400]}",
-            dimension_scores=[
-                DimensionScore(
-                    dimension=RatingDimension.INSTRUCTION_FOLLOWING,
-                    score_a=3.0,
-                    score_b=3.0,
-                    justification="Fallback assignment"
-                )
-            ],
-            detected_errors_model_a=[],
-            detected_errors_model_b=[]
+            winner=winner,
+            margin=verdict.margin,
+            dimension_scores=scores,
+            overall_reasoning=" ".join(reasons),
+            detected_errors_model_a=errors_a,
+            detected_errors_model_b=errors_b
         )
+
