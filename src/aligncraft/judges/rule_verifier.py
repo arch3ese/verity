@@ -324,8 +324,23 @@ class RuleVerifier:
                 for char in target_letters:
                     count = decomposed_text.count(char)
                     if count > 0:
-                        detail = f"VIOLATION: Contains {count} instance(s) of forbidden character '{char}'."
-                        report.character_violations.append(f"Forbidden '{char}': {count} occurrences")
+                        # Extract exact words containing the forbidden character for non-hallucinatory attribution
+                        tokens = re.findall(r"\b[\w'-]+\b", clean_text)
+                        violating_words = []
+                        for tok in tokens:
+                            norm_tok = unicodedata.normalize("NFKD", tok).lower()
+                            for lig, repl in LIGATURE_FOLD_MAP.items():
+                                norm_tok = norm_tok.replace(lig, repl)
+                            if char in norm_tok:
+                                violating_words.append(tok)
+
+                        unique_words = list(dict.fromkeys(violating_words))
+                        words_preview = ", ".join(f"'{w}'" for w in unique_words[:5])
+                        if len(unique_words) > 5:
+                            words_preview += f" (+{len(unique_words) - 5} more)"
+
+                        detail = f"VIOLATION: Contains {count} instance(s) of forbidden character '{char}' in word(s): {words_preview}."
+                        report.character_violations.append(f"Forbidden '{char}': {count} occurrences in word(s): {words_preview}")
                         report.hard_negative_violation = True
                         report.constraint_audits.append(
                             ConstraintAuditItem(constraint=rule_clean, passed=False, details=detail)
