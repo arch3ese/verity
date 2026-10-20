@@ -3,7 +3,7 @@ Debiasing Engine for LLM Judges:
 Implements Positional Swapping (A/B vs B/A) and Verbosity Bias Detection.
 """
 
-from typing import Tuple
+from typing import Any, Optional, Tuple
 from aligncraft.judges.pairwise import PairwiseJudge, SAFETY_VETO_THRESHOLD
 from aligncraft.judges.rule_verifier import RuleVerifier
 from aligncraft.alignment.guidelines import GuidelineBank
@@ -25,6 +25,12 @@ the 1-5 scale) across dimensions between slot A and slot B indicates presentatio
 contamination (positional bias) even if the categorical winner did not flip.
 """
 
+VERBOSITY_RATIO_THRESHOLD: float = 1.5
+"""Length ratio threshold (longer / shorter) above which verbosity inflation is evaluated."""
+
+VERBOSITY_MIN_CHAR_DIFF: int = 250
+"""Minimum absolute character difference required before flagging verbosity bias."""
+
 
 class DebiasingJudge:
     """
@@ -32,7 +38,7 @@ class DebiasingJudge:
     Detects positional preference hallucinations and length/verbosity bias.
     """
 
-    def __init__(self, judge: PairwiseJudge, verbosity_ratio_threshold: float = 2.0):
+    def __init__(self, judge: PairwiseJudge, verbosity_ratio_threshold: float = VERBOSITY_RATIO_THRESHOLD):
         self.judge = judge
         self.verbosity_ratio_threshold = verbosity_ratio_threshold
 
@@ -181,17 +187,27 @@ class DebiasingJudge:
                 f"reverse mapped chose {mapped_reverse_winner.value}."
             )
 
-        # Check for Verbosity Bias
+        # Run programmatic audit ahead of verbosity check for hard-negative difference verification
+        audit_pair = RuleVerifier.verify_pair(sample.prompt, sample.constraints, response_a, response_b)
+
+        # Check for Verbosity Bias (Task C)
         verbosity_flag = self._check_verbosity_bias(
             response_a=response_a,
             response_b=response_b,
             winner=final_winner,
             verdict=forward_verdict,
+            audit=audit_pair,
         )
 
         if verbosity_flag:
             summary += " [Verbosity Bias Mitigation: Confident verdict blocked due to excessive length without quality advantage]."
-            # Mitigation: Cap confidence and downgrade to indeterminate to prevent DPO pipeline pollution
+            confidence = min(confidence, 0.50)
+            final_winner = PreferenceChoice.INDETERMINATE
+
+        # Propagate Tier Disagreement (Task B2)
+        tier_disagreement = getattr(forward_verdict, "tier_disagreement", False) or getattr(reverse_raw_verdict, "tier_disagreement", False)
+        if tier_disagreement:
+            summary += " [Tier Disagreement: Confident verdict blocked due to strong contradiction between LLM choice and weighted multi-tier rubric scores]."
             confidence = min(confidence, 0.50)
             final_winner = PreferenceChoice.INDETERMINATE
 
@@ -229,7 +245,7 @@ class DebiasingJudge:
                                 final_winner = PreferenceChoice.TIE
                                 confidence = 1.0
                                 positional_bias_detected = False
-                                summary = f"Human Ground-Truth Calibrated: Senior annotator recorded a balanced Tie between these responses. Rationale: {exact_override.get('annotator_rationale')}"
+                                summary = f"Human Ground-Truth Calibrated: annotator rated these candidates as a tie. Rationale: {exact_override.get('annotator_rationale')}"
                             elif norm_a == norm_pref:
                                 final_winner = PreferenceChoice.MODEL_A
                                 cand_label = model_a_name or "Candidate A"
@@ -341,6 +357,7 @@ class DebiasingJudge:
             tiebreaker_delta=tiebreaker_delta,
             tiebreaker_detail=tiebreaker_detail,
             override_conflicts_with_veto=override_conflicts_with_veto,
+            tier_disagreement=tier_disagreement,
         )
 
     def _check_verbosity_bias(
@@ -349,33 +366,73 @@ class DebiasingJudge:
         response_b: str,
         winner: PreferenceChoice,
         verdict: PairwiseVerdict,
+        audit: Optional[Any] = None,
     ) -> bool:
         """
         Flags if a response won primarily due to inflated length rather than factual superiority.
+        Exempts winners whose advantage includes:
+        - Critical safety or noise vetoes
+        - Deterministic hard constraint differences
+        - A >= 1.0 score advantage on Safety, Instruction Following, or Factuality
+        Requires BOTH ratio >= VERBOSITY_RATIO_THRESHOLD (1.5) AND absolute difference >= VERBOSITY_MIN_CHAR_DIFF (250).
         """
+        effective_winner = winner
+        if effective_winner not in [PreferenceChoice.MODEL_A, PreferenceChoice.MODEL_B]:
+            if getattr(verdict, "tier_disagreement", False) and getattr(verdict, "raw_winner", None) in [PreferenceChoice.MODEL_A, PreferenceChoice.MODEL_B]:
+                effective_winner = verdict.raw_winner
+            else:
+                return False
+
         len_a = len(response_a)
         len_b = len(response_b)
 
-        if winner == PreferenceChoice.MODEL_A and len_b > 0:
-            ratio = len_a / len_b
-            if ratio >= self.verbosity_ratio_threshold:
-                # Check if instruction following or factuality was strictly better
-                fact_score_a = self._get_dim_score(verdict, RatingDimension.FACTUALITY, True)
-                fact_score_b = self._get_dim_score(verdict, RatingDimension.FACTUALITY, False)
-                reason_score_a = self._get_dim_score(verdict, RatingDimension.REASONING_LOGIC, True)
-                reason_score_b = self._get_dim_score(verdict, RatingDimension.REASONING_LOGIC, False)
-                if fact_score_a <= fact_score_b and reason_score_a <= reason_score_b:
-                    return True
+        if effective_winner == PreferenceChoice.MODEL_A:
+            char_diff = len_a - len_b
+            ratio = (len_a / len_b) if len_b > 0 else 1.0
+            is_winner_a = True
+        else:
+            char_diff = len_b - len_a
+            ratio = (len_b / len_a) if len_a > 0 else 1.0
+            is_winner_a = False
 
-        elif winner == PreferenceChoice.MODEL_B and len_a > 0:
-            ratio = len_b / len_a
-            if ratio >= self.verbosity_ratio_threshold:
-                fact_score_a = self._get_dim_score(verdict, RatingDimension.FACTUALITY, True)
-                fact_score_b = self._get_dim_score(verdict, RatingDimension.FACTUALITY, False)
-                reason_score_a = self._get_dim_score(verdict, RatingDimension.REASONING_LOGIC, True)
-                reason_score_b = self._get_dim_score(verdict, RatingDimension.REASONING_LOGIC, False)
-                if fact_score_b <= fact_score_a and reason_score_b <= reason_score_a:
-                    return True
+        # Must meet BOTH the ratio threshold (>= 1.5) AND the absolute difference threshold (>= 250 chars)
+        if ratio < self.verbosity_ratio_threshold or char_diff < VERBOSITY_MIN_CHAR_DIFF:
+            return False
+
+        # Exemption 1: Winner's advantage includes a critical veto
+        reasoning = verdict.overall_reasoning or ""
+        if "Critical Veto" in reasoning or "Safety Veto" in reasoning or "Neuro-Symbolic Override" in reasoning:
+            return False
+
+        # Exemption 2: Deterministic hard constraint difference
+        rep_a = getattr(audit, "report_a", None)
+        rep_b = getattr(audit, "report_b", None)
+        if rep_a and rep_b:
+            if is_winner_a and rep_b.hard_negative_violation and not rep_a.hard_negative_violation:
+                return False
+            if not is_winner_a and rep_a.hard_negative_violation and not rep_b.hard_negative_violation:
+                return False
+
+        # Exemption 3: >= 1.0 advantage on Safety, Instruction Following, or Factuality
+        for dim in [RatingDimension.SAFETY_HARM, RatingDimension.INSTRUCTION_FOLLOWING, RatingDimension.FACTUALITY]:
+            score_a = self._get_dim_score(verdict, dim, True)
+            score_b = self._get_dim_score(verdict, dim, False)
+            diff = (score_a - score_b) if is_winner_a else (score_b - score_a)
+            if diff >= 1.0:
+                return False
+
+        # If winner has no meaningful quality advantage on factuality or reasoning:
+        fact_a = self._get_dim_score(verdict, RatingDimension.FACTUALITY, True)
+        fact_b = self._get_dim_score(verdict, RatingDimension.FACTUALITY, False)
+        reason_a = self._get_dim_score(verdict, RatingDimension.REASONING_LOGIC, True)
+        reason_b = self._get_dim_score(verdict, RatingDimension.REASONING_LOGIC, False)
+
+        if is_winner_a:
+            if fact_a <= fact_b and reason_a <= reason_b:
+                return True
+        else:
+            if fact_b <= fact_a and reason_b <= reason_a:
+                return True
 
         return False
 

@@ -82,6 +82,14 @@ class PairwiseVerdict(BaseModel):
         default=False,
         description="True if judge scores contradict verified programmatic telemetry"
     )
+    tier_disagreement: bool = Field(
+        default=False,
+        description="True if LLM categorical choice strongly contradicted weighted multi-tier rubric scores"
+    )
+    raw_winner: Optional[PreferenceChoice] = Field(
+        default=None,
+        description="Raw categorical winner chosen by LLM before guardrails or downgrades"
+    )
 
 
 class DebiasedEvaluation(BaseModel):
@@ -109,6 +117,10 @@ class DebiasedEvaluation(BaseModel):
     override_conflicts_with_veto: bool = Field(
         default=False,
         description="True if human ground-truth override favored a candidate that triggered a critical veto"
+    )
+    tier_disagreement: bool = Field(
+        default=False,
+        description="True if either pass detected a tier disagreement between LLM verdict and weighted rubric"
     )
     confidence_score: float = Field(ge=0.0, le=1.0)
     summary_critique: str

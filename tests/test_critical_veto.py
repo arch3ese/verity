@@ -118,3 +118,126 @@ def test_critical_veto_does_not_fire_on_normal_cases():
 
     assert verdict.winner == PreferenceChoice.MODEL_A
     assert "Critical Veto" not in verdict.overall_reasoning
+
+
+def test_tier_disagreement_downgrades_to_indeterminate():
+    """
+    Task B2: The LLM says Candidate A wins, but weighted multi-tier score strongly favors
+    Candidate B by >= TIER_DISAGREEMENT_MARGIN (e.g. 16.0 pts difference).
+    Code must set tier_disagreement = True and downgrade winner to INDETERMINATE.
+    """
+    def llm_handler(msg: str) -> str:
+        return json.dumps({
+            "winner": "model_a",
+            "margin": "clear",
+            "dimension_scores": [
+                {"dimension": "safety_harm", "score_a": 5.0, "score_b": 5.0, "justification": "Both safe."},
+                {"dimension": "instruction_following", "score_a": 2.0, "score_b": 5.0, "justification": "B followed instructions."},
+                {"dimension": "factuality", "score_a": 3.0, "score_b": 4.0, "justification": "B more factual."},
+                {"dimension": "reasoning_logic", "score_a": 3.0, "score_b": 4.0, "justification": "B better reasoning."},
+                {"dimension": "style_conciseness", "score_a": 5.0, "score_b": 3.0, "justification": "A more stylish."}
+            ],
+            "overall_reasoning": "LLM liked A for its prose style despite lower instruction adherence.",
+            "detected_errors_model_a": [],
+            "detected_errors_model_b": []
+        })
+
+    mock_llm = MockChatModel(response_handler=llm_handler)
+    judge = PairwiseJudge(mock_llm)
+    sample = PromptSample(id="tier-disagree-01", prompt="Explain photosynthesis.")
+
+    verdict = judge.evaluate_pair(
+        sample=sample,
+        response_a="Photosynthesis explanation with weak instructions.",
+        response_b="Photosynthesis explanation following all instructions."
+    )
+
+    assert hasattr(verdict, "tier_disagreement") and verdict.tier_disagreement is True, (
+        f"Expected tier_disagreement=True, got {getattr(verdict, 'tier_disagreement', None)}"
+    )
+    assert verdict.winner == PreferenceChoice.INDETERMINATE, (
+        f"Expected winner to downgrade to INDETERMINATE, got {verdict.winner}"
+    )
+
+
+def test_tier_disagreement_does_not_fire_when_scores_agree():
+    """
+    Task B2: When the LLM winner is consistent with weighted rubric scores,
+    tier_disagreement must remain False and winner must be preserved.
+    """
+    def llm_handler(msg: str) -> str:
+        return json.dumps({
+            "winner": "model_a",
+            "margin": "clear",
+            "dimension_scores": [
+                {"dimension": "safety_harm", "score_a": 5.0, "score_b": 5.0, "justification": "Both safe."},
+                {"dimension": "instruction_following", "score_a": 5.0, "score_b": 3.0, "justification": "A followed instructions."},
+                {"dimension": "factuality", "score_a": 5.0, "score_b": 4.0, "justification": "A more factual."},
+                {"dimension": "reasoning_logic", "score_a": 4.0, "score_b": 4.0, "justification": "Equal logic."},
+                {"dimension": "style_conciseness", "score_a": 4.0, "score_b": 4.0, "justification": "Equal style."}
+            ],
+            "overall_reasoning": "Model A clearly superior.",
+            "detected_errors_model_a": [],
+            "detected_errors_model_b": []
+        })
+
+    mock_llm = MockChatModel(response_handler=llm_handler)
+    judge = PairwiseJudge(mock_llm)
+    sample = PromptSample(id="tier-agree-01", prompt="Explain gravity.")
+
+    verdict = judge.evaluate_pair(
+        sample=sample,
+        response_a="Gravity explanation from A.",
+        response_b="Gravity explanation from B."
+    )
+
+    assert getattr(verdict, "tier_disagreement", False) is False
+    assert verdict.winner == PreferenceChoice.MODEL_A
+
+
+def test_dual_hard_negative_fewer_violations_wins():
+    """
+    Task B3: When both candidates violate negative constraints (and neither has a safety veto),
+    the candidate with FEWER violations wins with margin 'slight'. Equal violations stay TIE.
+    """
+    def llm_handler(msg: str) -> str:
+        return json.dumps({
+            "winner": "tie",
+            "margin": "slight",
+            "dimension_scores": [
+                {"dimension": "safety_harm", "score_a": 5.0, "score_b": 5.0, "justification": "Both safe."},
+                {"dimension": "instruction_following", "score_a": 2.5, "score_b": 2.0, "justification": "Both had violations."},
+                {"dimension": "factuality", "score_a": 4.0, "score_b": 4.0, "justification": "Equal."},
+                {"dimension": "reasoning_logic", "score_a": 4.0, "score_b": 4.0, "justification": "Equal."},
+                {"dimension": "style_conciseness", "score_a": 4.0, "score_b": 4.0, "justification": "Equal."}
+            ],
+            "overall_reasoning": "Both violated lipogram.",
+            "detected_errors_model_a": ["negative_constraint_violation"],
+            "detected_errors_model_b": ["negative_constraint_violation"]
+        })
+
+    mock_llm = MockChatModel(response_handler=llm_handler)
+    judge = PairwiseJudge(mock_llm)
+    sample = PromptSample(
+        id="dual-neg-01",
+        prompt="Explain light without using the letter 'e'.",
+        constraints=["Must NOT contain the letter e or E"]
+    )
+
+    # Candidate A has 1 violation ('e' in 'the')
+    # Candidate B has 3 violations ('e' in 'speed', 'energy')
+    resp_a = "Light is a form of radiation from sun."  # 0 'e's? Wait, 'radiation' has no e. Let's make 1 'e': "Light is the ray." (1 'e')
+    resp_b = "Light energy travels at high speed."    # 'energy' (2 e's) + 'speed' (2 e's) = 4 'e's
+
+    verdict = judge.evaluate_pair(
+        sample=sample,
+        response_a="Light is the ray.",
+        response_b="Light energy travels at high speed."
+    )
+
+    assert verdict.winner == PreferenceChoice.MODEL_A, (
+        f"Expected Candidate A (1 violation) to beat Candidate B (4 violations), got {verdict.winner}"
+    )
+    assert verdict.margin == "slight"
+    assert "Dual Negative Constraint Failure" in verdict.overall_reasoning or "fewer violations" in verdict.overall_reasoning
+

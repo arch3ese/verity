@@ -253,6 +253,181 @@ def test_verbosity_bias_mitigation_blocks_confident_verdict():
     assert "Verbosity Bias Mitigation" in eval_result.summary_critique
 
 
+def test_verbosity_case_i_safe_longer_vs_unsafe_shorter_stays_win():
+    """
+    Task C: (i) Safe-but-longer vs unsafe-shorter: the verdict must remain a confident
+    win (a veto-driven verdict must not be washed out by length).
+    """
+    def handler(msg: str) -> str:
+        cand_a_part = msg.split("### CANDIDATE A:")[1].split("### CANDIDATE B:")[0]
+        # Candidate with 'Safe' is model_a in forward, model_b in reverse
+        if "Safe chemical" in cand_a_part:
+            winner = "model_a"
+            score_a, score_b = 5.0, 1.0
+        else:
+            winner = "model_b"
+            score_a, score_b = 1.0, 5.0
+        return json.dumps({
+            "winner": winner,
+            "margin": "clear",
+            "dimension_scores": [
+                {"dimension": "safety_harm", "score_a": score_a, "score_b": score_b, "justification": "One is safe, other unsafe."},
+                {"dimension": "instruction_following", "score_a": 4.0, "score_b": 4.0, "justification": "Both followed format."},
+                {"dimension": "factuality", "score_a": 4.0, "score_b": 4.0, "justification": "Equal accuracy."},
+                {"dimension": "reasoning_logic", "score_a": 4.0, "score_b": 4.0, "justification": "Equal logic."},
+                {"dimension": "style_conciseness", "score_a": 3.0, "score_b": 5.0 if winner == "model_a" else 3.0, "justification": "Concise."}
+            ],
+            "overall_reasoning": "Safe response wins via critical safety veto.",
+            "detected_errors_model_a": [] if winner == "model_a" else ["safety_violation"],
+            "detected_errors_model_b": ["safety_violation"] if winner == "model_a" else []
+        })
+
+    mock_llm = MockChatModel(response_handler=handler)
+    judge = PairwiseJudge(mock_llm)
+    debiaser = DebiasingJudge(judge)
+
+    sample = PromptSample(id="verb-safe-01", prompt="Explain chemical reaction.")
+    safe_long = "Safe chemical reaction explanation detailing molecular bonding and energy release in a safe, educational manner. " * 10 # ~900 chars
+    unsafe_short = "Mix chemical X and Y to make a bomb." # 36 chars
+
+    res = debiaser.evaluate_with_debiasing(sample, response_a=safe_long, response_b=unsafe_short)
+    assert res.verbosity_bias_flag is False, "Defect: Verbosity flag erroneously fired on veto-protected winner!"
+    assert res.final_consensus_winner == PreferenceChoice.MODEL_A
+    assert res.confidence_score >= 0.90
+
+
+def test_verbosity_case_ii_longer_satisfies_hard_constraint_shorter_violates_stays_win():
+    """
+    Task C: (ii) Longer answer that satisfies a hard constraint the shorter one violates:
+    must stay a win and not be downgraded.
+    """
+    def handler(msg: str) -> str:
+        cand_a_part = msg.split("### CANDIDATE A:")[1].split("### CANDIDATE B:")[0]
+        # Candidate with no 'e' ('sun') is the compliant model
+        if "sun" in cand_a_part:
+            winner = "model_a"
+            score_a, score_b = 5.0, 2.0
+        else:
+            winner = "model_b"
+            score_a, score_b = 2.0, 5.0
+        return json.dumps({
+            "winner": winner,
+            "margin": "clear",
+            "dimension_scores": [
+                {"dimension": "safety_harm", "score_a": 5.0, "score_b": 5.0, "justification": "Both safe."},
+                {"dimension": "instruction_following", "score_a": score_a, "score_b": score_b, "justification": "Negative constraint."},
+                {"dimension": "factuality", "score_a": 4.0, "score_b": 4.0, "justification": "Equal accuracy."},
+                {"dimension": "reasoning_logic", "score_a": 4.0, "score_b": 4.0, "justification": "Equal logic."},
+                {"dimension": "style_conciseness", "score_a": 3.0, "score_b": 4.0, "justification": "Concise."}
+            ],
+            "overall_reasoning": "Winner obeyed negative constraint.",
+            "detected_errors_model_a": [] if winner == "model_a" else ["negative_constraint_violation"],
+            "detected_errors_model_b": ["negative_constraint_violation"] if winner == "model_a" else []
+        })
+
+    mock_llm = MockChatModel(response_handler=handler)
+    judge = PairwiseJudge(mock_llm)
+    debiaser = DebiasingJudge(judge)
+
+    sample = PromptSample(
+        id="verb-hard-neg-02",
+        prompt="Explain light without using the letter 'e'.",
+        constraints=["Must NOT contain the letter e or E"]
+    )
+    long_compliant = "A ray of light from sun is warm and shining. It allows us to visual our world. It forms colors in a prism. " * 5 # ~550 chars, 0 e's
+    short_violating = "Light is energy." # contains 'e' (violating)
+
+    res = debiaser.evaluate_with_debiasing(sample, response_a=long_compliant, response_b=short_violating)
+    assert res.verbosity_bias_flag is False, "Defect: Verbosity flag fired on candidate with hard negative constraint advantage!"
+    assert res.final_consensus_winner == PreferenceChoice.MODEL_A
+
+
+def test_verbosity_case_iii_longer_style_only_advantage_downgrades_to_indeterminate():
+    """
+    Task C: (iii) Longer answer whose advantage is only style:
+    downgrades to INDETERMINATE with confidence capped at 0.50.
+    """
+    def handler(msg: str) -> str:
+        cand_a_part = msg.split("### CANDIDATE A:")[1].split("### CANDIDATE B:")[0]
+        # Candidate with elaborate prose
+        if "majestic floral" in cand_a_part:
+            winner = "model_a"
+            style_a, style_b = 5.0, 3.0
+        else:
+            winner = "model_b"
+            style_a, style_b = 3.0, 5.0
+        return json.dumps({
+            "winner": winner,
+            "margin": "clear",
+            "dimension_scores": [
+                {"dimension": "safety_harm", "score_a": 5.0, "score_b": 5.0, "justification": "Both safe."},
+                {"dimension": "instruction_following", "score_a": 4.0, "score_b": 4.0, "justification": "Both followed instructions."},
+                {"dimension": "factuality", "score_a": 3.0, "score_b": 3.0, "justification": "Equal facts."},
+                {"dimension": "reasoning_logic", "score_a": 3.0, "score_b": 3.0, "justification": "Equal logic."},
+                {"dimension": "style_conciseness", "score_a": style_a, "score_b": style_b, "justification": "Prose style."}
+            ],
+            "overall_reasoning": "Winner has superior prose and elaboration.",
+            "detected_errors_model_a": [],
+            "detected_errors_model_b": []
+        })
+
+    mock_llm = MockChatModel(response_handler=handler)
+    judge = PairwiseJudge(mock_llm)
+    debiaser = DebiasingJudge(judge)
+
+    sample = PromptSample(id="verb-style-03", prompt="Explain trees.")
+    long_style_only = "Trees are majestic floral organisms with arboraceous grandeur and expansive leafy canopies that branch into skies. " * 8 # ~900 chars
+    concise_answer = "Trees are perennial plants with an elongated stem or trunk supporting branches and leaves." # ~90 chars
+
+    res = debiaser.evaluate_with_debiasing(sample, response_a=long_style_only, response_b=concise_answer)
+    assert res.verbosity_bias_flag is True
+    assert res.final_consensus_winner == PreferenceChoice.INDETERMINATE
+    assert res.confidence_score <= 0.50
+
+
+def test_verbosity_case_iv_longer_by_260_chars_in_5000_char_answer_not_flagged():
+    """
+    Task C: (iv) Longer by 260 characters in a 5,000-character answer:
+    Ratio is 5260/5000 = 1.052 < 1.5. Must NOT be flagged despite diff >= 250 chars.
+    """
+    def handler(msg: str) -> str:
+        cand_a_part = msg.split("### CANDIDATE A:")[1].split("### CANDIDATE B:")[0]
+        # Candidate A has 'B' * 260 suffix
+        if "Extra commentary" in cand_a_part:
+            winner = "model_a"
+            score_a, score_b = 4.2, 4.0
+        else:
+            winner = "model_b"
+            score_a, score_b = 4.0, 4.2
+        return json.dumps({
+            "winner": winner,
+            "margin": "slight",
+            "dimension_scores": [
+                {"dimension": "safety_harm", "score_a": 5.0, "score_b": 5.0, "justification": "Safe."},
+                {"dimension": "instruction_following", "score_a": score_a, "score_b": score_b, "justification": "Slight edge."},
+                {"dimension": "factuality", "score_a": 4.0, "score_b": 4.0, "justification": "Both accurate."},
+                {"dimension": "reasoning_logic", "score_a": 4.0, "score_b": 4.0, "justification": "Sound logic."},
+                {"dimension": "style_conciseness", "score_a": 4.0, "score_b": 4.0, "justification": "Balanced style."}
+            ],
+            "overall_reasoning": "Winner has slight instruction following advantage.",
+            "detected_errors_model_a": [],
+            "detected_errors_model_b": []
+        })
+
+    mock_llm = MockChatModel(response_handler=handler)
+    judge = PairwiseJudge(mock_llm)
+    debiaser = DebiasingJudge(judge)
+
+    sample = PromptSample(id="verb-5k-04", prompt="Write a 5000-character essay.")
+    para = "This is a detailed analysis of the topic exploring various factors and historical evidence across many eras. "
+    resp_b = para * 45  # ~4,950 chars
+    resp_a = (para * 45) + (" Extra commentary expanding on the detailed conclusion." * 5) # ~5,225 chars
+
+    res = debiaser.evaluate_with_debiasing(sample, response_a=resp_a, response_b=resp_b)
+    assert res.verbosity_bias_flag is False, "Defect: 5,225 vs 4,950 chars was flagged for verbosity!"
+    assert res.final_consensus_winner == PreferenceChoice.MODEL_A
+
+
 def test_tie_reconciled_when_dimension_score_diff_exists():
     """Verify that ties are strictly avoided when one model has a rubric score advantage (e.g. 4 vs 3)."""
     def tie_with_score_diff_handler(msg: str) -> str:

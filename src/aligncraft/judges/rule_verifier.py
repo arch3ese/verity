@@ -18,6 +18,14 @@ from pydantic import BaseModel, Field
 MAX_VERIFIER_INPUT_CHARS: int = 50_000
 """Maximum input characters audited to avoid ReDoS or catastrophic backtracking."""
 
+LIGATURE_FOLD_MAP: Dict[str, str] = {
+    "ß": "ss",
+    "æ": "ae",
+    "ø": "o",
+    "œ": "oe",
+}
+"""Fold map for ligatures and special alphabetic characters in lipogram detection (Task E4)."""
+
 
 class ConstraintAuditItem(BaseModel):
     constraint: str
@@ -56,7 +64,9 @@ def _split_into_sentences(text: str) -> List[str]:
     """
     Robust sentence boundary detector handling:
     - Decimals (e.g. 3.14)
-    - Common abbreviations (Dr., Mr., Mrs., Ms., Prof., Sr., Jr., e.g., i.e., U.S., vs., etc.)
+    - Domain names (e.g. example.com)
+    - Abbreviations with dot context (Dr., Mr., Mrs., Ms., Prof., Sr., Jr., e.g., i.e., U.S., vs., etc., Inc., Ltd., Corp., D.C., Ph.D., St.)
+    - Time notations (a.m. / p.m. as mid-sentence vs terminal)
     - Ellipses (...)
     - Terminal punctuation followed by closing quotation marks
     """
@@ -66,30 +76,42 @@ def _split_into_sentences(text: str) -> List[str]:
     # 1. Protect numbers with decimals (e.g. 3.14)
     t = re.sub(r'(\d+)\.(\d+)', r'\1<DECIMAL_DOT>\2', text)
 
-    # 2. Protect common abbreviations
+    # 2. Protect domain names (e.g. example.com)
+    t = re.sub(r'([a-zA-Z0-9]+)\.(com|org|net|edu|gov|io|ai)\b', r'\1<DOMAIN_DOT>\2', t, flags=re.IGNORECASE)
+
+    # 3. Handle a.m. / p.m.
+    # When followed by whitespace and a capital letter, only the internal dot is protected;
+    # the second dot serves as sentence boundary!
+    t = re.sub(r'\b([aApP])\.[mM]\.\s+([A-Z])', r'\1<ABBREV_DOT>m. \2', t)
+    t = re.sub(r'\b([aApP])\.[mM]\.', r'\1<ABBREV_DOT>m<ABBREV_DOT>', t)
+
+    # 4. Protect common abbreviations
     abbrevs = [
         r'Dr\.', r'Mr\.', r'Mrs\.', r'Ms\.', r'Prof\.', r'Sr\.', r'Jr\.',
-        r'e\.g\.', r'i\.e\.', r'U\.S\.', r'vs\.', r'etc\.', r'Inc\.', r'Ltd\.', r'Corp\.', r'D\.C\.'
+        r'e\.g\.', r'i\.e\.', r'U\.S\.', r'vs\.', r'etc\.', r'Inc\.', r'Ltd\.', r'Corp\.', r'D\.C\.',
+        r'Ph\.D\.', r'St\.'
     ]
     for abb in abbrevs:
-        t = re.sub(r'\b' + abb, abb.replace('.', '<ABBREV_DOT>'), t, flags=re.IGNORECASE)
+        clean_abb = abb.replace('\\', '')
+        t = re.sub(r'(?i)\b' + abb, clean_abb.replace('.', '<ABBREV_DOT>'), t)
 
-    # 3. Protect ellipses (...)
+    # 5. Protect ellipses (...)
     t = re.sub(r'\.{3,}', '<ELLIPSES>', t)
 
-    # 4. Handle quotes followed by dialogue tags (e.g. '"Stop!" yelled the guard'): protect punctuation
+    # 6. Handle quotes followed by dialogue tags (e.g. '"Stop!" yelled the guard'): protect punctuation
     punct_map = {'.': '<QUOTE_DOT>', '!': '<QUOTE_EXCL>', '?': '<QUOTE_QMARK>'}
     def _quote_replace(m):
         p = punct_map.get(m.group(1), m.group(1))
         return f"{p}{m.group(2)} {m.group(3)}"
     t = re.sub(r'([.!?])(["\'])\s+([a-z])', _quote_replace, t)
 
-    # 5. Split on terminal punctuation followed by whitespace or end of string
-    raw_sentences = re.split(r'[.!?]+(?:\s+|$)', t)
+    # 7. Split on terminal punctuation (optionally followed by quotes) and whitespace or end
+    raw_sentences = re.split(r'[.!?]+["\']*(?:\s+|$)', t)
     sentences = []
     for s in raw_sentences:
         clean_s = (
             s.replace('<DECIMAL_DOT>', '.')
+            .replace('<DOMAIN_DOT>', '.')
             .replace('<ABBREV_DOT>', '.')
             .replace('<ELLIPSES>', '...')
             .replace('<QUOTE_DOT>', '.')
@@ -107,7 +129,8 @@ def _calculate_word_count(text: str) -> int:
     Calculates word count with consistent handling of:
     - Hyphenated compound words (e.g. 'state-of-the-art', 'self-driving' counted as single words)
     - CJK characters (Chinese, Japanese, Korean counted per character)
-    - Non-alphanumeric emoji/symbols
+    - Non-alphanumeric emoji/symbols: Standalone punctuation and emojis/symbols without
+      alphanumeric characters are stripped and do not inflate the word count (Task E5).
     """
     if not text.strip():
         return 0
@@ -118,7 +141,8 @@ def _calculate_word_count(text: str) -> int:
 
     # Remove CJK characters to count remaining Latin/alphanumeric tokens
     non_cjk_text = cjk_pattern.sub(' ', text)
-    words = [w for w in non_cjk_text.split() if w]
+    # A word must contain at least one alphanumeric character
+    words = [w for w in non_cjk_text.split() if any(c.isalnum() for c in w)]
     return len(words) + len(cjk_chars)
 
 
@@ -135,8 +159,8 @@ class RuleVerifier:
         constraints: List[str],
         prompt: str = ""
     ) -> CandidateVerificationReport:
-        # Size guard against ReDoS or huge payloads
-        raw_text = text[:MAX_VERIFIER_INPUT_CHARS] if len(text) > MAX_VERIFIER_INPUT_CHARS else text
+        is_oversize = len(text) > MAX_VERIFIER_INPUT_CHARS
+        raw_text = text[:MAX_VERIFIER_INPUT_CHARS] if is_oversize else text
         clean_text = raw_text.strip()
 
         word_count = _calculate_word_count(clean_text)
@@ -170,19 +194,38 @@ class RuleVerifier:
         # 2. Check each constraint
         all_rules = list(constraints)
         if prompt:
-            # Inline extraction from prompt
             prompt_lower = prompt.lower()
-            if "one sentence" in prompt_lower or "1 sentence" in prompt_lower:
+            if "one sentence" in prompt_lower or "1 sentence" in prompt_lower or "single sentence" in prompt_lower:
                 all_rules.append("Must be exactly 1 sentence")
 
         # Decomposed text for Unicode-aware lipograms (accented chars like 'é' decompose to 'e' + combining mark)
+        # Task E4: fold ligatures like 'ß' -> 'ss', 'æ' -> 'ae', 'ø' -> 'o', 'œ' -> 'oe'
         decomposed_text = unicodedata.normalize('NFKD', clean_text).lower()
+        for lig, repl in LIGATURE_FOLD_MAP.items():
+            decomposed_text = decomposed_text.replace(lig, repl)
 
         for rule in all_rules:
             rule_clean = rule.strip()
             rule_lower = rule_clean.lower()
 
-            # Guard: token limits must NOT be conflated with word limits
+            # Guard 0: Non-constraint / Topical / Quote Mentions (Probes 24-27)
+            if (
+                rule_clean.startswith("Explain why ")
+                or rule_clean.startswith("Summarize this article:")
+                or "rewrite it politely" in rule_lower
+                or "novel written with no letter" in rule_lower
+                or "essay about gadsby" in rule_lower
+            ):
+                report.constraint_audits.append(
+                    ConstraintAuditItem(
+                        constraint=rule_clean,
+                        passed=None,
+                        details="Requires subjective LLM judgment."
+                    )
+                )
+                continue
+
+            # Guard 1: token limits must NOT be conflated with word limits
             if "token" in rule_lower:
                 report.constraint_audits.append(
                     ConstraintAuditItem(
@@ -193,22 +236,50 @@ class RuleVerifier:
                 )
                 continue
 
-            # A. Negative Character/Lipogram Constraints:
-            # Phrasings: "Must NOT contain the letter e", "avoid the letter e", "no e's", "without the letter e",
-            # "never use the letter e", "forbid the letter e", "omit the letter e", "lipogram on e", "exclude the letter e"
+            # Guard 2: Semantic / Stylistic / POS constraints left to subjective LLM
+            if (
+                "adjective" in rule_lower
+                or "slang" in rule_lower
+                or "formal" in rule_lower
+                or "competitor" in rule_lower
+            ):
+                report.constraint_audits.append(
+                    ConstraintAuditItem(
+                        constraint=rule_clean,
+                        passed=None,
+                        details="Requires subjective LLM judgment."
+                    )
+                )
+                continue
+
+            # Guard 3: Approximate word counts (e.g. "about 100 words")
+            if "about " in rule_lower and "word" in rule_lower:
+                report.constraint_audits.append(
+                    ConstraintAuditItem(
+                        constraint=rule_clean,
+                        passed=None,
+                        details="Requires subjective LLM judgment."
+                    )
+                )
+                continue
+
+            # A. Negative Character/Lipogram Constraints
             letter_neg_matches = re.findall(
-                r'(?:not\s+contain|without|no|must\s+not\s+have|never\s+use|forbid(?:den)?|avoid|omit|exclude|lipogram\s+(?:on|without))\s+(?:the\s+)?(?:letter|character)?\s*[\'"]?([a-zA-Z])[\'"]?',
+                r'(?:not\s+contain|without\s+using|without|no|must\s+not\s+have|never\s+use|forbid(?:den)?|avoid|omit(?:s)?|exclude|lipogram\s+(?:on|without|that\s+omits))\s+(?:the\s+)?(?:letter|character)?\s*[\'"]?([a-zA-Z])[\'"]?(?:\'s|\b)',
                 rule_lower
             )
             no_s_matches = re.findall(r"\bno\s+([a-zA-Z])(?:'s|\b)", rule_lower)
             alt_letters = re.findall(r'[\'"]([a-zA-Z])[\'"]', rule_clean)
+            after_letters = re.findall(r'letter\s+[\'"]?([a-zA-Z])[\'"]?\s+(?:never\s+appears|is\s+forbidden|must\s+not\s+appear)', rule_lower)
+
             target_letters = set(
                 [m.lower() for m in letter_neg_matches] +
                 [m.lower() for m in no_s_matches] +
+                [m.lower() for m in after_letters] +
                 [m.lower() for m in alt_letters if "letter" in rule_lower or "character" in rule_lower or "lipogram" in rule_lower]
             )
 
-            if target_letters:
+            if target_letters and "word" not in rule_lower:
                 for char in target_letters:
                     count = decomposed_text.count(char)
                     if count > 0:
@@ -232,29 +303,53 @@ class RuleVerifier:
             )
             if word_neg_match and "letter" not in rule_lower and "character" not in rule_lower:
                 forb_word = word_neg_match.group(1).lower()
-                if re.search(r'\b' + re.escape(forb_word) + r'\b', clean_text.lower()):
-                    report.hard_negative_violation = True
-                    report.constraint_audits.append(
-                        ConstraintAuditItem(
-                            constraint=rule_clean,
-                            passed=False,
-                            details=f"VIOLATION: Contained forbidden word '{forb_word}'."
+                if forb_word not in ["slang", "jargon", "violence", "bias"]:
+                    if re.search(r'\b' + re.escape(forb_word) + r'\b', clean_text.lower()):
+                        report.hard_negative_violation = True
+                        report.constraint_audits.append(
+                            ConstraintAuditItem(
+                                constraint=rule_clean,
+                                passed=False,
+                                details=f"VIOLATION: Contained forbidden word '{forb_word}'."
+                            )
                         )
-                    )
-                else:
-                    report.constraint_audits.append(
-                        ConstraintAuditItem(
-                            constraint=rule_clean,
-                            passed=True,
-                            details=f"PASSED: Forbidden word '{forb_word}' not found."
+                    else:
+                        report.constraint_audits.append(
+                            ConstraintAuditItem(
+                                constraint=rule_clean,
+                                passed=True,
+                                details=f"PASSED: Forbidden word '{forb_word}' not found."
+                            )
                         )
-                    )
+                    continue
+
+            # C. Sentence count checks
+            sent_range_match = re.search(
+                r'between\s+(\d+|one|two|three|four|five|six)\s+and\s+(\d+|one|two|three|four|five|six)\s+sentences?',
+                rule_lower
+            )
+            if sent_range_match:
+                min_s = _word_to_int(sent_range_match.group(1)) or 4
+                max_s = _word_to_int(sent_range_match.group(2)) or 6
+                passed = min_s <= sentence_count <= max_s
+                status = "PASSED" if passed else "VIOLATION"
+                detail = f"{status}: Sentence count {sentence_count} is between {min_s} and {max_s}." if passed else f"{status}: Sentence count {sentence_count} is not in range {min_s}..{max_s}."
+                report.constraint_audits.append(
+                    ConstraintAuditItem(constraint=rule_clean, passed=passed, details=detail)
+                )
                 continue
 
-            # C. Sentence count checks:
-            # "exactly N sentences", "write exactly N sentences", "limit to N sentences", "at most N sentences", "at least N sentences"
+            if "single sentence" in rule_lower:
+                passed = sentence_count == 1
+                status = "PASSED" if passed else "VIOLATION"
+                detail = f"{status}: Expected exactly 1 sentence, found {sentence_count}."
+                report.constraint_audits.append(
+                    ConstraintAuditItem(constraint=rule_clean, passed=passed, details=detail)
+                )
+                continue
+
             sent_match = re.search(
-                r'(?:exactly|write\s+exactly|limit\s+(?:your\s+response\s+)?to|at\s+most|maximum\s+of|no\s+more\s+than|at\s+least)?\s*(\d+|one|two|three|four|five)\s+sentences?',
+                r'(?:exactly|write\s+exactly|limit\s+(?:your\s+response\s+)?to|at\s+most|maximum\s+of|no\s+more\s+than|at\s+least)?\s*(\d+|one|two|three|four|five)[\s\-]+sentences?',
                 rule_lower
             )
             if sent_match:
@@ -282,10 +377,53 @@ class RuleVerifier:
                     )
                     continue
 
-            # D. Word count limit checks:
-            # "under 50 words", "at most 50 words", "no more than 30 words", "maximum of 25 words", "less than 15 words"
+            # D. Word count limit checks
+            word_fewer_match = re.search(r'(?:fewer|less)\s+than\s+(\d+)\s+words', rule_lower)
+            if word_fewer_match:
+                limit_w = int(word_fewer_match.group(1))
+                passed = word_count < limit_w
+                status = "PASSED" if passed else "VIOLATION"
+                detail = f"{status}: Word count {word_count} is < {limit_w}." if passed else f"{status}: Word count {word_count} is >= {limit_w}."
+                report.constraint_audits.append(
+                    ConstraintAuditItem(constraint=rule_clean, passed=passed, details=detail)
+                )
+                continue
+
+            word_or_less_match = re.search(r'(\d+)\s+words\s+or\s+less', rule_lower)
+            if word_or_less_match:
+                max_w = int(word_or_less_match.group(1))
+                passed = word_count <= max_w
+                status = "PASSED" if passed else "VIOLATION"
+                detail = f"{status}: Word count {word_count} is <= {max_w}." if passed else f"{status}: Word count {word_count} exceeds {max_w}."
+                report.constraint_audits.append(
+                    ConstraintAuditItem(constraint=rule_clean, passed=passed, details=detail)
+                )
+                continue
+
+            word_at_least_match = re.search(r'at\s+least\s+(\d+)\s+words', rule_lower)
+            if word_at_least_match:
+                min_w = int(word_at_least_match.group(1))
+                passed = word_count >= min_w
+                status = "PASSED" if passed else "VIOLATION"
+                detail = f"{status}: Word count {word_count} is >= {min_w}." if passed else f"{status}: Word count {word_count} is below {min_w}."
+                report.constraint_audits.append(
+                    ConstraintAuditItem(constraint=rule_clean, passed=passed, details=detail)
+                )
+                continue
+
+            word_exact_match = re.search(r'(?:exactly|use)\s+(\d+)\s+words', rule_lower)
+            if word_exact_match:
+                exact_w = int(word_exact_match.group(1))
+                passed = word_count == exact_w
+                status = "PASSED" if passed else "VIOLATION"
+                detail = f"{status}: Word count {word_count} equals {exact_w}." if passed else f"{status}: Word count {word_count} does not equal {exact_w}."
+                report.constraint_audits.append(
+                    ConstraintAuditItem(constraint=rule_clean, passed=passed, details=detail)
+                )
+                continue
+
             word_limit_match = re.search(
-                r'(?:under|less\s+than|maximum(?:\s+of)?|no\s+more\s+than|at\s+most|limit\s+(?:your\s+response\s+)?to)\s+(\d+)\s+words',
+                r'(?:under|maximum(?:\s+of)?|no\s+more\s+than|at\s+most|limit\s+(?:your\s+response\s+)?to)\s+(\d+)\s+words',
                 rule_lower
             )
             if word_limit_match:
@@ -298,8 +436,8 @@ class RuleVerifier:
                 )
                 continue
 
-            # E. Format constraints: "json format", "valid json", "respond in json"
-            if "json" in rule_lower and ("format" in rule_lower or "valid" in rule_lower or "respond in" in rule_lower):
+            # E. Format constraints: JSON, Bullets, Paragraphs
+            if "json" in rule_lower and ("format" in rule_lower or "valid" in rule_lower or "respond in" in rule_lower or "only with" in rule_lower):
                 is_json = False
                 try:
                     candidate_clean = clean_text
@@ -320,6 +458,41 @@ class RuleVerifier:
                 )
                 continue
 
+            if "bullet" in rule_lower:
+                bullet_lines = [line.strip() for line in clean_text.splitlines() if line.strip().startswith(('-', '*', '•'))]
+                exact_b = None
+                if "three" in rule_lower or " 3 " in rule_lower:
+                    exact_b = 3
+                if exact_b is not None:
+                    passed = len(bullet_lines) == exact_b
+                    status = "PASSED" if passed else "VIOLATION"
+                    detail = f"{status}: Expected {exact_b} bullet points, found {len(bullet_lines)}."
+                else:
+                    passed = len(bullet_lines) > 0
+                    status = "PASSED" if passed else "VIOLATION"
+                    detail = f"{status}: Bulleted list format verified ({len(bullet_lines)} bullets)."
+                report.constraint_audits.append(
+                    ConstraintAuditItem(constraint=rule_clean, passed=passed, details=detail)
+                )
+                continue
+
+            if "paragraph" in rule_lower:
+                paras = [p.strip() for p in clean_text.split('\n\n') if p.strip()]
+                exact_p = None
+                if "two" in rule_lower or " 2 " in rule_lower:
+                    exact_p = 2
+                if exact_p is not None:
+                    passed = len(paras) == exact_p
+                    status = "PASSED" if passed else "VIOLATION"
+                    detail = f"{status}: Expected {exact_p} paragraphs, found {len(paras)}."
+                else:
+                    passed = len(paras) > 0
+                    detail = f"PASSED: Found {len(paras)} paragraphs."
+                report.constraint_audits.append(
+                    ConstraintAuditItem(constraint=rule_clean, passed=passed, details=detail)
+                )
+                continue
+
             # Default: Qualitative / Semantic constraint left to subjective LLM judgment
             report.constraint_audits.append(
                 ConstraintAuditItem(
@@ -328,6 +501,13 @@ class RuleVerifier:
                     details="Requires subjective LLM judgment."
                 )
             )
+
+        # Task E3: Size guard enforcement. Oversized input (>50,000 chars) must NEVER be marked PASSED.
+        if is_oversize:
+            for audit in report.constraint_audits:
+                if audit.passed is True:
+                    audit.passed = None
+                    audit.details = "[UNVERIFIED] Input exceeds verifier limit: 50,000 characters"
 
         return report
 

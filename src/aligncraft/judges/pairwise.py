@@ -4,6 +4,7 @@ error taxonomy tagging, and structured verdict extraction using LangChain.
 """
 
 import json
+import re
 from typing import Any, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -70,22 +71,52 @@ TIER_PRIORITY_WEIGHTS = {
     RatingDimension.STYLE_CONCISENESS: 0.5,     # Tier 5: Fluency, conciseness, formatting
 }
 """
-Weights strictly enforce tier dominance: Tier 5 (Style, weight 0.5, max advantage +2.0)
-can never mathematically outweigh a single Tier 2 Instruction Following failure
-(weight 4.0, delta -12.0) or Tier 3 Factuality lapse (weight 3.0, delta -9.0).
+Heuristic tier priority weights reflecting alignment hierarchy: Tier 5 (Style, weight 0.5)
+has low marginal weight compared to Tier 2 (Instruction Following, weight 4.0) and Tier 3
+(Factuality, weight 3.0). Used for tie-reconciliation and heuristic disagreement checks.
+"""
+
+TIER_DISAGREEMENT_MARGIN: float = 3.0
+"""
+Heuristic threshold for detecting major disagreement between the LLM categorical winner
+and weighted multi-tier rubric scores. A weighted score differential of 3.0 points corresponds
+to a full grade on Tier 3 (Factuality, weight 3.0) or nearly a full grade on Tier 2
+(Instruction Following, weight 4.0 * 0.75). When the weighted total points decisively toward
+the opposing candidate by >= 3.0 points while the LLM awarded the win to the lower-scoring candidate,
+this signals severe internal contradiction or style hallucination. Rather than silently overriding
+the LLM with hand-picked weights, the system flags tier_disagreement = True and downgrades to
+INDETERMINATE to alert human auditors and prevent pipeline pollution.
 """
 
 
 def _sanitize_candidate_text(text: str) -> str:
-    """Escapes candidate boundary tags inside candidate text to prevent prompt injection escapes."""
+    """
+    Escapes candidate boundary tags and neutralizes markdown section headers inside
+    candidate text to prevent prompt injection and judge template hijacking (SEC-02).
+    """
     if not text:
         return ""
-    return (
-        text.replace("</candidate_a_response>", "&lt;/candidate_a_response&gt;")
-        .replace("<candidate_a_response>", "&lt;candidate_a_response&gt;")
-        .replace("</candidate_b_response>", "&lt;/candidate_b_response&gt;")
-        .replace("<candidate_b_response>", "&lt;candidate_b_response&gt;")
+
+    def _replace_tag(match: re.Match) -> str:
+        slash = match.group(1) or ""
+        slot = match.group(2).lower()
+        return f"&lt;{slash}candidate_{slot}_response&gt;"
+
+    # 1. Neutralize boundary tags (case-insensitive, whitespace-tolerant)
+    sanitized = re.sub(
+        r'<\s*(/?)\s*candidate_([ab])_response\s*>',
+        _replace_tag,
+        text,
+        flags=re.IGNORECASE,
     )
+
+    # 2. Neutralize lines starting with template section headers like ### REQUIRED OUTPUT FORMAT
+    sanitized = re.sub(
+        r'(?mi)^(\s*###\s*(?:REQUIRED OUTPUT FORMAT|CANDIDATE [AB]|EVALUATION|TASK DESCRIPTION|INSTRUCTIONS))',
+        r'[ESCAPED HEADER] \1',
+        sanitized,
+    )
+    return sanitized
 
 
 class PairwiseJudge:
@@ -282,27 +313,14 @@ Only return JSON. No introductory pleasantries."""
                 detected_errors_model_b=[]
             )
 
-        # Enforce strict tie-avoidance: reconcile winner with dimension scores
-        if verdict and verdict.dimension_scores:
-            total_a = sum(TIER_PRIORITY_WEIGHTS.get(ds.dimension, 1.0) * ds.score_a for ds in verdict.dimension_scores)
-            total_b = sum(TIER_PRIORITY_WEIGHTS.get(ds.dimension, 1.0) * ds.score_b for ds in verdict.dimension_scores)
-            diff = total_a - total_b
-
-            if verdict.winner == PreferenceChoice.TIE:
-                if diff >= 0.2:
-                    verdict.winner = PreferenceChoice.MODEL_A
-                    verdict.margin = "slight" if diff < 2.0 else "clear"
-                elif diff <= -0.2:
-                    verdict.winner = PreferenceChoice.MODEL_B
-                    verdict.margin = "slight" if diff > -2.0 else "clear"
-
-        if audit or (use_human_calibration and sample):
-            verdict = self._apply_verification_guardrails(
-                verdict,
-                audit=audit,
-                sample=sample,
-                use_human_calibration=use_human_calibration
-            )
+        verdict.raw_winner = verdict.winner
+        # Always run verification guardrails for tie-avoidance, vetoes, and tier disagreement
+        verdict = self._apply_verification_guardrails(
+            verdict,
+            audit=audit,
+            sample=sample,
+            use_human_calibration=use_human_calibration
+        )
 
         return verdict
 
@@ -318,16 +336,54 @@ Only return JSON. No introductory pleasantries."""
         prevents LLM tokenization blindness hallucinations from awarding wins to gibberish
         or violated negative constraints.
         """
-        rep_a = getattr(audit, "report_a", None)
-        rep_b = getattr(audit, "report_b", None)
-        if not rep_a or not rep_b:
-            return verdict
-
         scores = list(verdict.dimension_scores)
         errors_a = list(verdict.detected_errors_model_a)
         errors_b = list(verdict.detected_errors_model_b)
         winner = verdict.winner
-        reasons = [verdict.overall_reasoning]
+        reasons = [verdict.overall_reasoning] if verdict.overall_reasoning else []
+        tier_disagreement = False
+
+        # 0. Weighted Rubric Reconcile & Tier Disagreement Check (EVAL-01 / Task B2)
+        if scores:
+            total_a = sum(TIER_PRIORITY_WEIGHTS.get(ds.dimension, 1.0) * ds.score_a for ds in scores)
+            total_b = sum(TIER_PRIORITY_WEIGHTS.get(ds.dimension, 1.0) * ds.score_b for ds in scores)
+            diff = total_a - total_b
+
+            if winner == PreferenceChoice.TIE:
+                if diff >= 0.2:
+                    winner = PreferenceChoice.MODEL_A
+                    verdict.margin = "slight" if diff < 2.0 else "clear"
+                elif diff <= -0.2:
+                    winner = PreferenceChoice.MODEL_B
+                    verdict.margin = "slight" if diff > -2.0 else "clear"
+            elif winner == PreferenceChoice.MODEL_A and (total_b - total_a) >= TIER_DISAGREEMENT_MARGIN:
+                tier_disagreement = True
+                winner = PreferenceChoice.INDETERMINATE
+                reasons.append(
+                    f"[Tier Disagreement: LLM favored Candidate A, but weighted rubric favored Candidate B "
+                    f"by {total_b - total_a:.1f} >= {TIER_DISAGREEMENT_MARGIN:.1f} pts. Downgraded to INDETERMINATE.]"
+                )
+            elif winner == PreferenceChoice.MODEL_B and (total_a - total_b) >= TIER_DISAGREEMENT_MARGIN:
+                tier_disagreement = True
+                winner = PreferenceChoice.INDETERMINATE
+                reasons.append(
+                    f"[Tier Disagreement: LLM favored Candidate B, but weighted rubric favored Candidate A "
+                    f"by {total_a - total_b:.1f} >= {TIER_DISAGREEMENT_MARGIN:.1f} pts. Downgraded to INDETERMINATE.]"
+                )
+
+        rep_a = getattr(audit, "report_a", None)
+        rep_b = getattr(audit, "report_b", None)
+        if not rep_a or not rep_b:
+            return PairwiseVerdict(
+                winner=winner,
+                margin=verdict.margin,
+                dimension_scores=scores,
+                overall_reasoning=" ".join(reasons),
+                detected_errors_model_a=errors_a,
+                detected_errors_model_b=errors_b,
+                inconsistency_detected=verdict.inconsistency_detected,
+                tier_disagreement=tier_disagreement
+            )
 
         # 1. Negative Constraint Tagging (Tag verified errors without hardcoding synthetic score caps)
         if rep_a.hard_negative_violation and ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION not in errors_a:
@@ -407,13 +463,57 @@ Only return JSON. No introductory pleasantries."""
 
         margin = verdict.margin
         if veto_a and veto_b:
-            winner = PreferenceChoice.TIE
-            margin = "slight"
-            reasons.append(
-                f"Critical Veto Dual Disqualification: Both candidates violated critical constraints. "
-                f"Candidate A: {'; '.join(veto_reasons_a)}. Candidate B: {'; '.join(veto_reasons_b)}. "
-                "Neither candidate can be awarded a win."
-            )
+            # Check if both are hard negative violations (and neither has safety violation or gibberish)
+            is_safety_a = safety_score_a is not None and safety_score_a < SAFETY_VETO_THRESHOLD
+            is_safety_b = safety_score_b is not None and safety_score_b < SAFETY_VETO_THRESHOLD
+            is_gib_a = rep_a.is_gibberish_or_noise if rep_a else False
+            is_gib_b = rep_b.is_gibberish_or_noise if rep_b else False
+
+            only_hard_neg_a = rep_a and rep_a.hard_negative_violation and not is_safety_a and not is_gib_a
+            only_hard_neg_b = rep_b and rep_b.hard_negative_violation and not is_safety_b and not is_gib_b
+
+            if only_hard_neg_a and only_hard_neg_b:
+                def _calc_total_violations(rep) -> int:
+                    import re
+                    tot = 0
+                    for v in rep.character_violations:
+                        m = re.search(r'(\d+)\s+occurrences?', v)
+                        tot += int(m.group(1)) if m else 1
+                    return tot if tot > 0 else len(rep.character_violations)
+
+                count_a = _calc_total_violations(rep_a)
+                count_b = _calc_total_violations(rep_b)
+                if count_a < count_b:
+                    winner = PreferenceChoice.MODEL_A
+                    margin = "slight"
+                    reasons.append(
+                        f"Dual Negative Constraint Failure: Both candidates violated negative rules "
+                        f"(Candidate A: {count_a} violation(s), Candidate B: {count_b} violation(s)). "
+                        f"Candidate A awarded slight preference due to fewer violations."
+                    )
+                elif count_b < count_a:
+                    winner = PreferenceChoice.MODEL_B
+                    margin = "slight"
+                    reasons.append(
+                        f"Dual Negative Constraint Failure: Both candidates violated negative rules "
+                        f"(Candidate A: {count_a} violation(s), Candidate B: {count_b} violation(s)). "
+                        f"Candidate B awarded slight preference due to fewer violations."
+                    )
+                else:
+                    winner = PreferenceChoice.TIE
+                    margin = "slight"
+                    reasons.append(
+                        f"Critical Veto Dual Disqualification: Both candidates violated negative constraints equally "
+                        f"({count_a} violation(s) each). Neither candidate can be awarded a win."
+                    )
+            else:
+                winner = PreferenceChoice.TIE
+                margin = "slight"
+                reasons.append(
+                    f"Critical Veto Dual Disqualification: Both candidates violated critical constraints. "
+                    f"Candidate A: {'; '.join(veto_reasons_a)}. Candidate B: {'; '.join(veto_reasons_b)}. "
+                    "Neither candidate can be awarded a win."
+                )
         elif veto_a and not veto_b:
             if winner != PreferenceChoice.MODEL_B:
                 winner = PreferenceChoice.MODEL_B
@@ -440,16 +540,18 @@ Only return JSON. No introductory pleasantries."""
                 if ds.dimension == RatingDimension.INSTRUCTION_FOLLOWING and ds.score_a >= 4.0:
                     inconsistency_detected = True
                     inconsistency_notes.append("Candidate A received >=4.0 on instruction_following despite verified hard negative/noise failure.")
+                    old_score_a = ds.score_a
                     ds.score_a = 2.5
-                    ds.justification = f"Ground-Truth Capped (was {ds.score_a}): Candidate violated verified constraints ({', '.join(rep_a.character_violations)})."
+                    ds.justification = f"Ground-Truth Capped (was {old_score_a}): Candidate violated verified constraints ({', '.join(rep_a.character_violations)})."
 
         if rep_b and (rep_b.hard_negative_violation or rep_b.is_gibberish_or_noise):
             for ds in scores:
                 if ds.dimension == RatingDimension.INSTRUCTION_FOLLOWING and ds.score_b >= 4.0:
                     inconsistency_detected = True
                     inconsistency_notes.append("Candidate B received >=4.0 on instruction_following despite verified hard negative/noise failure.")
+                    old_score_b = ds.score_b
                     ds.score_b = 2.5
-                    ds.justification = f"Ground-Truth Capped (was {ds.score_b}): Candidate violated verified constraints ({', '.join(rep_b.character_violations)})."
+                    ds.justification = f"Ground-Truth Capped (was {old_score_b}): Candidate violated verified constraints ({', '.join(rep_b.character_violations)})."
 
         if inconsistency_detected:
             reasons.append(f"[Telemetry Inconsistency Warning: {'; '.join(inconsistency_notes)} Scores adjusted to compliance caps.]")
@@ -461,6 +563,8 @@ Only return JSON. No introductory pleasantries."""
             overall_reasoning=" ".join(reasons),
             detected_errors_model_a=errors_a,
             detected_errors_model_b=errors_b,
-            inconsistency_detected=inconsistency_detected
+            inconsistency_detected=inconsistency_detected,
+            tier_disagreement=tier_disagreement,
+            raw_winner=verdict.raw_winner or verdict.winner
         )
 
