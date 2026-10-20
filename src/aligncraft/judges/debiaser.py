@@ -3,7 +3,10 @@ Debiasing Engine for LLM Judges:
 Implements Positional Swapping (A/B vs B/A) and Verbosity Bias Detection.
 """
 
+import logging
 from typing import Any, Optional, Tuple
+
+logger = logging.getLogger("aligncraft.judges.debiaser")
 from aligncraft.judges.pairwise import PairwiseJudge, SAFETY_VETO_THRESHOLD
 from aligncraft.judges.rule_verifier import RuleVerifier
 from aligncraft.alignment.guidelines import GuidelineBank
@@ -95,24 +98,45 @@ class DebiasingJudge:
             )
 
         # Execute Pass 1 (Forward: A vs B) and Pass 2 (Reverse: B vs A) concurrently
+        # with automatic fallback to sequential execution if upstream concurrency limits are reached.
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            future_forward = executor.submit(
-                self.judge.evaluate_pair,
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                future_forward = executor.submit(
+                    self.judge.evaluate_pair,
+                    sample=sample,
+                    response_a=response_a,
+                    response_b=response_b,
+                    use_human_calibration=use_human_calibration,
+                )
+                future_reverse = executor.submit(
+                    self.judge.evaluate_pair,
+                    sample=sample,
+                    response_a=response_b,
+                    response_b=response_a,
+                    use_human_calibration=use_human_calibration,
+                )
+                forward_verdict = future_forward.result()
+                reverse_raw_verdict = future_reverse.result()
+        except Exception as parallel_err:
+            logger.warning(
+                f"Concurrent dual-pass evaluation failed ({parallel_err}). "
+                f"Falling back to sequential passes with backoff..."
+            )
+            import time
+            forward_verdict = self.judge.evaluate_pair(
                 sample=sample,
                 response_a=response_a,
                 response_b=response_b,
                 use_human_calibration=use_human_calibration,
             )
-            future_reverse = executor.submit(
-                self.judge.evaluate_pair,
+            time.sleep(1.0)
+            reverse_raw_verdict = self.judge.evaluate_pair(
                 sample=sample,
                 response_a=response_b,
                 response_b=response_a,
                 use_human_calibration=use_human_calibration,
             )
-            forward_verdict = future_forward.result()
-            reverse_raw_verdict = future_reverse.result()
 
         # In reverse pass:
         # If reverse verdict winner is 'model_a', that physically corresponded to response_b!

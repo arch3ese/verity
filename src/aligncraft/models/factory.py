@@ -94,14 +94,27 @@ class ResilientChatModel(BaseChatModel):
 
                 is_recoverable = any(
                     token in err_str
-                    for token in ["429", "resource_exhausted", "503", "unavailable", "rate limit", "quota", "deadline"]
+                    for token in [
+                        "429",
+                        "resource_exhausted",
+                        "503",
+                        "unavailable",
+                        "rate limit",
+                        "quota",
+                        "deadline",
+                        "timeout",
+                        "timed out",
+                        "504",
+                    ]
                 )
                 if is_recoverable and idx < len(candidates) - 1:
                     logger.warning(
                         f"Model generation failed with recoverable error: {e}. "
-                        f"Attempting failover to next candidate model..."
+                        f"Applying backoff and attempting failover to next candidate model..."
                     )
                     last_error = e
+                    import time
+                    time.sleep(1.2)
                     continue
                 raise e
 
@@ -148,7 +161,8 @@ def get_chat_model(
                 pass
 
         max_retries = kwargs.pop("max_retries", 1)
-        timeout = kwargs.pop("timeout", 15.0)
+        default_timeout = float(os.getenv("ALIGN_TIMEOUT", "60.0"))
+        timeout = kwargs.pop("timeout", default_timeout)
 
         # Build primary model (forward temperature to ChatGoogleGenerativeAI)
         primary = ChatGoogleGenerativeAI(
@@ -165,7 +179,7 @@ def get_chat_model(
         if env_fallbacks is not None:
             raw_names = [f.strip() for f in env_fallbacks.split(",") if f.strip() and f.strip().lower() not in ["none", "false", "0"]]
         else:
-            raw_names = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.8-flash"]
+            raw_names = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"]
         fallback_names = [m for m in raw_names if m != target_model]
 
         fallbacks = [

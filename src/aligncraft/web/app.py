@@ -465,9 +465,18 @@ def evaluate_pair(req: EvaluationRequest):
         raise
     except Exception as e:
         logger.error(f"Evaluation failed: {e}", exc_info=True)
+        err_str = str(e).lower()
+        if any(tok in err_str for tok in ["503", "high demand", "unavailable"]):
+            detail = "The AI judge provider is currently experiencing high demand (503 UNAVAILABLE). Please try again in a moment, or switch models."
+        elif any(tok in err_str for tok in ["504", "deadline", "timeout", "timed out"]):
+            detail = "The AI judge evaluation timed out (504 DEADLINE_EXCEEDED). Please try again or switch to a faster model."
+        elif any(tok in err_str for tok in ["429", "resource_exhausted", "quota"]):
+            detail = "The AI judge quota or rate limit was exceeded (429). Please verify your API key limits or try again later."
+        else:
+            detail = "An internal error occurred during evaluation. Please check server logs."
         raise HTTPException(
             status_code=500,
-            detail="An internal error occurred during evaluation. Please check server logs."
+            detail=detail
         )
 
 
@@ -523,9 +532,18 @@ def generate_candidate(req: CandidateGenerationRequest):
         raise
     except Exception as e:
         logger.error(f"Candidate generation failed: {e}", exc_info=True)
+        err_str = str(e).lower()
+        if any(tok in err_str for tok in ["503", "high demand", "unavailable"]):
+            detail = "The AI model provider is currently experiencing high demand (503 UNAVAILABLE). Please try again in a moment, or select a different model."
+        elif any(tok in err_str for tok in ["504", "deadline", "timeout", "timed out"]):
+            detail = "Candidate generation timed out (504 DEADLINE_EXCEEDED). Please try again or switch to a faster model."
+        elif any(tok in err_str for tok in ["429", "resource_exhausted", "quota"]):
+            detail = "The AI model provider quota or rate limit was exceeded (429). Please verify your API key limits or try again later."
+        else:
+            detail = "An internal error occurred during candidate generation. Please check server logs."
         raise HTTPException(
             status_code=500,
-            detail="An internal error occurred during candidate generation. Please check server logs."
+            detail=detail
         )
 
 
