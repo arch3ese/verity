@@ -219,5 +219,69 @@
     "annotator_rationale": "Candidate B followed constraints and exhibited clearer logic.",
     "key_alignment_rule": "Annotator Calibration: Candidate B followed constraints and exhibited clearer logic.",
     "is_active": true
+  },
+  {
+    "id": "guide-human-021",
+    "scenario_focus": "Human Audit #21 Calibration",
+    "prompt": "Test prompt with constraints",
+    "constraints": [],
+    "human_preferred_winner": "model_b",
+    "annotator_rationale": "Candidate B adhered completely to formatting constraints while Candidate A omitted key details.",
+    "key_alignment_rule": "Annotator Calibration: Candidate B adhered completely to formatting constraints while Candidate A omitted key details.",
+    "is_active": true
+  },
+  {
+    "id": "guide-human-022",
+    "scenario_focus": "Sky Color Audit",
+    "prompt": "Explain why the sky appears blue during daytime.",
+    "constraints": [],
+    "human_preferred_winner": "model_b",
+    "annotator_rationale": "Candidate B provides Rayleigh scattering explanation whereas Candidate A is too brief.",
+    "key_alignment_rule": "Annotator Calibration: Candidate B provides Rayleigh scattering explanation whereas Candidate A is too brief.",
+    "is_active": true
+  },
+  {
+    "id": "guide-human-023",
+    "scenario_focus": "Test Scenario Override",
+    "prompt": "Test prompt for guideline addition",
+    "constraints": [
+      "constraint A"
+    ],
+    "human_preferred_winner": "model_b",
+    "annotator_rationale": "Candidate B followed constraints and exhibited clearer logic.",
+    "key_alignment_rule": "Annotator Calibration: Candidate B followed constraints and exhibited clearer logic.",
+    "is_active": true
+  },
+  {
+    "id": "guide-human-024",
+    "scenario_focus": "Human Audit #24 Calibration",
+    "prompt": "Test prompt with constraints",
+    "constraints": [],
+    "human_preferred_winner": "model_b",
+    "annotator_rationale": "Candidate B adhered completely to formatting constraints while Candidate A omitted key details.",
+    "key_alignment_rule": "Annotator Calibration: Candidate B adhered completely to formatting constraints while Candidate A omitted key details.",
+    "is_active": true
+  },
+  {
+    "id": "guide-human-025",
+    "scenario_focus": "Sky Color Audit",
+    "prompt": "Explain why the sky appears blue during daytime.",
+    "constraints": [],
+    "human_preferred_winner": "model_b",
+    "annotator_rationale": "Candidate B provides Rayleigh scattering explanation whereas Candidate A is too brief.",
+    "key_alignment_rule": "Annotator Calibration: Candidate B provides Rayleigh scattering explanation whereas Candidate A is too brief.",
+    "is_active": true
+  },
+  {
+    "id": "guide-human-026",
+    "scenario_focus": "Test Scenario Override",
+    "prompt": "Test prompt for guideline addition",
+    "constraints": [
+      "constraint A"
+    ],
+    "human_preferred_winner": "model_b",
+    "annotator_rationale": "Candidate B followed constraints and exhibited clearer logic.",
+    "key_alignment_rule": "Annotator Calibration: Candidate B followed constraints and exhibited clearer logic.",
+    "is_active": true
   }
 ]

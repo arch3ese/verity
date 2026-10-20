@@ -130,6 +130,53 @@ class DebiasingJudge:
                     positional_bias_detected = False
                     summary = f"Human Ground-Truth Calibrated: Senior annotator preference ({'Candidate A' if hw == 'model_a' else 'Candidate B'}) enforced for this prompt. Rationale: {exact_override.get('annotator_rationale')}"
 
+        # Calculate Tiebreaker Options if Indeterminate
+        can_resolve_tiebreaker = False
+        tiebreaker_candidate = None
+        tiebreaker_delta = None
+        tiebreaker_detail = None
+
+        if final_winner == PreferenceChoice.INDETERMINATE:
+            weight_map = {
+                RatingDimension.SAFETY_HARM: 3.0,
+                RatingDimension.INSTRUCTION_FOLLOWING: 2.5,
+                RatingDimension.FACTUALITY: 2.0,
+                RatingDimension.REASONING_LOGIC: 1.5,
+                RatingDimension.STYLE_CONCISENESS: 1.0,
+            }
+            # Scores for A: forward score_a, reverse score_b
+            fwd_map_a = {ds.dimension: ds.score_a for ds in forward_verdict.dimension_scores}
+            rev_map_a = {ds.dimension: ds.score_b for ds in reverse_raw_verdict.dimension_scores}
+
+            # Scores for B: forward score_b, reverse score_a
+            fwd_map_b = {ds.dimension: ds.score_b for ds in forward_verdict.dimension_scores}
+            rev_map_b = {ds.dimension: ds.score_a for ds in reverse_raw_verdict.dimension_scores}
+
+            all_dims = set(fwd_map_a.keys()) | set(rev_map_a.keys())
+            total_mean_a = sum(
+                weight_map.get(d, 1.0) * ((fwd_map_a.get(d, 3.0) + rev_map_a.get(d, 3.0)) / 2.0)
+                for d in all_dims
+            )
+            total_mean_b = sum(
+                weight_map.get(d, 1.0) * ((fwd_map_b.get(d, 3.0) + rev_map_b.get(d, 3.0)) / 2.0)
+                for d in all_dims
+            )
+            score_diff = total_mean_a - total_mean_b
+
+            if abs(score_diff) >= 0.25:
+                can_resolve_tiebreaker = True
+                if score_diff > 0:
+                    tiebreaker_candidate = "model_a"
+                    cand_name = model_a_name or "Candidate A"
+                else:
+                    tiebreaker_candidate = "model_b"
+                    cand_name = model_b_name or "Candidate B"
+                tiebreaker_delta = round(abs(score_diff), 2)
+                tiebreaker_detail = (
+                    f"Mean Rubric Differential: {cand_name} leads by +{tiebreaker_delta} pts "
+                    f"across both passes. You can proceed with this tiebreaker or audit manually below."
+                )
+
         return DebiasedEvaluation(
             sample_id=sample.id,
             model_a_name=model_a_name,
@@ -141,6 +188,10 @@ class DebiasingJudge:
             verbosity_bias_flag=verbosity_flag,
             confidence_score=confidence,
             summary_critique=summary,
+            can_resolve_tiebreaker=can_resolve_tiebreaker,
+            tiebreaker_candidate=tiebreaker_candidate,
+            tiebreaker_delta=tiebreaker_delta,
+            tiebreaker_detail=tiebreaker_detail,
         )
 
     def _check_verbosity_bias(

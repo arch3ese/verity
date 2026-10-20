@@ -100,6 +100,10 @@ class DebiasedEvaluation(BaseModel):
     )
     confidence_score: float = Field(ge=0.0, le=1.0)
     summary_critique: str
+    can_resolve_tiebreaker: bool = Field(default=False)
+    tiebreaker_candidate: Optional[str] = Field(default=None)
+    tiebreaker_delta: Optional[float] = Field(default=None)
+    tiebreaker_detail: Optional[str] = Field(default=None)
 
 
 class DPOTriplet(BaseModel):

@@ -22,9 +22,9 @@
             apple: {
               blue: '#0071e3',
               blueHover: '#0077ed',
-              darkBg: '#000000',
-              panel: '#121215',
-              panelElevated: '#18181d',
+              darkBg: '#050508',
+              panel: 'rgba(18, 18, 22, 0.72)',
+              panelElevated: 'rgba(24, 24, 29, 0.85)',
               border: 'rgba(255, 255, 255, 0.08)',
               borderFocus: 'rgba(0, 113, 227, 0.6)',
               subtext: '#86868b',
@@ -41,22 +41,29 @@
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, sans-serif;
-      background-color: #000000;
+      background-color: #050508;
+      background-image: radial-gradient(ellipse 70% 45% at 50% -10%, rgba(30, 58, 138, 0.22), transparent);
+      background-attachment: fixed;
       color: #f5f5f7;
       letter-spacing: -0.011em;
     }
     .apple-card {
-      background-color: #121215;
+      background: rgba(18, 18, 22, 0.72);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 1.25rem;
     }
     .apple-card-elevated {
-      background-color: #18181d;
+      background: rgba(24, 24, 29, 0.85);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 1.25rem;
     }
     .apple-input {
-      background-color: #0a0a0d;
+      background-color: rgba(10, 10, 13, 0.75);
+      backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 0.75rem;
       color: #f5f5f7;
@@ -70,51 +77,44 @@
     .code-font {
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
     }
-    /* iOS Style Switch */
-    .ios-switch {
+    /* macOS Native Desktop Checkbox */
+    .apple-checkbox {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: #2a2a2e;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      outline: none;
+      cursor: pointer;
       position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      vertical-align: middle;
       flex-shrink: 0;
     }
-    .ios-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
+    .apple-checkbox:checked {
+      background: #0071e3;
+      border-color: #0071e3;
     }
-    .ios-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #38383a;
-      transition: .25s ease;
-      border-radius: 24px;
-    }
-    .ios-slider:before {
-      position: absolute;
+    .apple-checkbox:checked::after {
       content: "";
-      height: 20px;
-      width: 20px;
-      left: 2px;
-      bottom: 2px;
-      background-color: white;
-      transition: .25s ease;
-      border-radius: 50%;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    }
-    input:checked + .ios-slider {
-      background-color: #0071e3;
-    }
-    input:checked + .ios-slider:before {
-      transform: translateX(20px);
+      width: 5px;
+      height: 9px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+      margin-bottom: 2px;
     }
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-[#0071e3]/30">
 
-  <!-- TOP APP NAVBAR (macOS Style) -->
-  <header class="border-b border-white/[0.08] bg-[#000000]/80 backdrop-blur-xl sticky top-0 z-50">
+  <!-- TOP APP NAVBAR (macOS Style with Translucency) -->
+  <header class="border-b border-white/[0.08] bg-[#050508]/75 backdrop-blur-2xl sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
       
       <!-- Brand & Title -->
@@ -129,7 +129,7 @@
       </div>
 
       <!-- Segmented Nav Controls (macOS segmented pill) -->
-      <nav class="flex items-center space-x-1 bg-[#1c1c1f] p-1 rounded-xl border border-white/10">
+      <nav class="flex items-center space-x-1 bg-[#1c1c1f]/80 p-1 rounded-xl border border-white/10">
         <button onclick="switchTab('reviewer')" id="tab-reviewer" class="tab-btn px-3 py-1 rounded-lg text-xs font-medium transition-all bg-[#2c2c2e] text-white shadow-sm">Reviewer</button>
         <button onclick="switchTab('benchmark')" id="tab-benchmark" class="tab-btn px-3 py-1 rounded-lg text-xs font-medium transition-all text-[#86868b] hover:text-white">Benchmarks</button>
         <button onclick="switchTab('rubrics')" id="tab-rubrics" class="tab-btn px-3 py-1 rounded-lg text-xs font-medium transition-all text-[#86868b] hover:text-white">Rubrics</button>
@@ -137,7 +137,7 @@
 
       <!-- Settings & Provider Status -->
       <div class="flex items-center space-x-2">
-        <button onclick="openApiKeyModal()" id="api-status-btn" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg bg-[#18181d] border border-white/10 hover:border-white/20 transition text-[#86868b] hover:text-white">
+        <button onclick="openApiKeyModal()" id="api-status-btn" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg bg-[#18181d]/80 border border-white/10 hover:border-white/20 transition text-[#86868b] hover:text-white">
           <span id="api-status-dot" class="w-2 h-2 rounded-full bg-[#30d158]"></span>
           <span id="api-status-text" class="text-zinc-300 font-medium text-[11px]">Gemini Ready</span>
           <i data-lucide="sliders" class="w-3.5 h-3.5 ml-1 text-[#86868b]"></i>
@@ -165,20 +165,20 @@
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="presets-container">
-          <button onclick="loadPreset(0)" class="preset-btn text-left p-2.5 rounded-xl bg-[#18181d] border border-white/5 hover:border-white/20 transition group">
-            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">🌿 Negative Constraint</span>
+          <button onclick="loadPreset(0)" class="preset-btn text-left p-2.5 rounded-xl bg-black/40 border border-white/5 hover:border-white/20 transition group">
+            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">Negative Constraint</span>
             <span class="text-[11px] text-[#86868b] block truncate mt-0.5">Summary without letter 'e'</span>
           </button>
-          <button onclick="loadPreset(1)" class="preset-btn text-left p-2.5 rounded-xl bg-[#18181d] border border-white/5 hover:border-white/20 transition group">
-            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">🔢 Sycophancy Trap</span>
+          <button onclick="loadPreset(1)" class="preset-btn text-left p-2.5 rounded-xl bg-black/40 border border-white/5 hover:border-white/20 transition group">
+            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">Sycophancy Trap</span>
             <span class="text-[11px] text-[#86868b] block truncate mt-0.5">13 * 17 = 231 false claim</span>
           </button>
-          <button onclick="loadPreset(2)" class="preset-btn text-left p-2.5 rounded-xl bg-[#18181d] border border-white/5 hover:border-white/20 transition group">
-            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">📋 Strict Formatting</span>
+          <button onclick="loadPreset(2)" class="preset-btn text-left p-2.5 rounded-xl bg-black/40 border border-white/5 hover:border-white/20 transition group">
+            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">Strict Formatting</span>
             <span class="text-[11px] text-[#86868b] block truncate mt-0.5">Raw JSON without markdown</span>
           </button>
-          <button onclick="loadPreset(3)" class="preset-btn text-left p-2.5 rounded-xl bg-[#18181d] border border-white/5 hover:border-white/20 transition group">
-            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">🌕 Hallucination Spotting</span>
+          <button onclick="loadPreset(3)" class="preset-btn text-left p-2.5 rounded-xl bg-black/40 border border-white/5 hover:border-white/20 transition group">
+            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">Hallucination Spotting</span>
             <span class="text-[11px] text-[#86868b] block truncate mt-0.5">Apollo 19 lunar mission</span>
           </button>
         </div>
@@ -207,10 +207,10 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <div>
             <label class="text-xs font-medium text-zinc-300 mb-1.5 flex items-center space-x-1.5">
-              <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-[#ff9f0a]"></i>
-              <span>Explicit Negative Constraints (comma separated)</span>
+              <i data-lucide="list-checks" class="w-3.5 h-3.5 text-[#ff9f0a]"></i>
+              <span>Task Constraints & Formatting Rules (comma separated)</span>
             </label>
-            <input id="constraints-input" type="text" class="apple-input w-full px-3 py-2 text-xs code-font" placeholder="e.g. Do not use the letter 'e', Output valid JSON only">
+            <input id="constraints-input" type="text" class="apple-input w-full px-3 py-2 text-xs code-font" placeholder="e.g. Must be 150-200 words, Valid JSON only, Do not use the letter 'e'">
           </div>
           <div>
             <label class="text-xs font-medium text-zinc-300 mb-1.5 flex items-center space-x-1.5">
@@ -232,23 +232,17 @@
           <span class="text-[11px] text-[#86868b] hidden md:inline">Query models simultaneously against prompt and constraints</span>
         </div>
 
-        <!-- Apple iOS Style Toggle Switch for Calibration -->
-        <div class="flex items-center space-x-3 bg-black/40 px-3.5 py-1.5 rounded-xl border border-white/5">
-          <label class="ios-switch">
-            <input type="checkbox" id="toggle-human-calibration" checked>
-            <span class="ios-slider"></span>
-          </label>
-          <div class="text-left">
-            <div class="flex items-center space-x-1.5">
-              <span class="text-xs font-medium text-zinc-200">Few-Shot Human Calibration</span>
-              <span id="guidelines-count-badge" class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-[#0071e3]/20 text-[#0071e3] border border-[#0071e3]/30">3 Exemplars</span>
-            </div>
-            <p class="text-[10px] text-[#86868b]">Injects human annotator decisions in-context to prevent ties</p>
+        <!-- Apple macOS Desktop Style Checkbox for Calibration -->
+        <label class="flex items-center space-x-2.5 cursor-pointer select-none bg-black/40 px-3.5 py-2 rounded-xl border border-white/5 hover:border-white/10 transition">
+          <input type="checkbox" id="toggle-human-calibration" checked class="apple-checkbox">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-medium text-zinc-200">Few-Shot Human Alignment Calibration</span>
+            <span id="guidelines-count-badge" class="text-[11px] text-[#86868b] font-medium">(3 Active Exemplars)</span>
           </div>
-        </div>
+        </label>
       </div>
 
-      <!-- SIDE-BY-SIDE CANDIDATE CARDS (Refined macOS Layout with NO overflow!) -->
+      <!-- SIDE-BY-SIDE CANDIDATE CARDS (Refined macOS Layout with Custom Dropdowns) -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         
         <!-- CANDIDATE A -->
@@ -266,18 +260,27 @@
             </div>
           </div>
 
-          <!-- Second Row: Model Picker & Actions Toolbar -->
+          <!-- Second Row: Custom Apple Model Selector Popover & Toolbar -->
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex-1 min-w-[200px]">
-              <select id="source-model-a" onchange="onSourceModelChanged('a')" class="apple-input w-full text-xs px-2.5 py-1.5 text-zinc-200">
-                <option value="custom">✍️ Custom Response (Manual / Paste)</option>
-                <option value="gemini:gemini-3.5-flash-lite">⚡ Gemini 3.5 Flash-Lite (Live)</option>
-                <option value="gemini:gemini-flash-latest">⚡ Gemini Flash Latest (Live)</option>
-                <option value="openai:gpt-4o-mini">⚡ OpenAI gpt-4o-mini (Live)</option>
-                <option value="ollama:llama3.2">🦙 Ollama Llama 3.2 (Local)</option>
-                <option value="ollama:qwen2.5">🦙 Ollama Qwen 2.5 (Local)</option>
-              </select>
+            <input type="hidden" id="source-model-a" value="custom">
+            
+            <div class="relative flex-1 min-w-[210px]" id="dropdown-wrapper-a">
+              <button type="button" onclick="toggleModelDropdown('a')" id="dropdown-btn-a" class="apple-input w-full flex items-center justify-between px-3 py-1.5 text-xs text-zinc-200 hover:border-white/20 transition">
+                <span id="selected-model-text-a" class="truncate font-medium">Custom Response (Manual Entry)</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-zinc-400 ml-1.5 shrink-0"></i>
+              </button>
+              
+              <!-- Popover Menu -->
+              <div id="dropdown-menu-a" class="hidden absolute left-0 top-full mt-1.5 w-full z-40 rounded-xl bg-[#1c1c22]/95 backdrop-blur-2xl border border-white/10 p-1 shadow-2xl space-y-0.5">
+                <div onclick="selectModelOption('a', 'custom', 'Custom Response (Manual Entry)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white cursor-pointer transition">Custom Response (Manual Entry)</div>
+                <div onclick="selectModelOption('a', 'gemini:gemini-3.5-flash-lite', 'Google Gemini 3.5 Flash-Lite (Live)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white cursor-pointer transition">Google Gemini 3.5 Flash-Lite (Live)</div>
+                <div onclick="selectModelOption('a', 'gemini:gemini-flash-latest', 'Google Gemini Flash Latest (Live)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white cursor-pointer transition">Google Gemini Flash Latest (Live)</div>
+                <div onclick="selectModelOption('a', 'openai:gpt-4o-mini', 'OpenAI gpt-4o-mini (Live)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white cursor-pointer transition">OpenAI gpt-4o-mini (Live)</div>
+                <div onclick="selectModelOption('a', 'ollama:llama3.2', 'Local Ollama Llama 3.2 (Local)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white cursor-pointer transition">Local Ollama Llama 3.2 (Local)</div>
+                <div onclick="selectModelOption('a', 'ollama:qwen2.5', 'Local Ollama Qwen 2.5 (Local)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white cursor-pointer transition">Local Ollama Qwen 2.5 (Local)</div>
+              </div>
             </div>
+
             <div class="flex items-center space-x-2">
               <button type="button" onclick="generateCandidate('a')" id="btn-gen-a" class="hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#0071e3]/20 text-[#0071e3] hover:bg-[#0071e3]/30 border border-[#0071e3]/30 text-xs font-medium transition">
                 <i data-lucide="play" class="w-3 h-3"></i>
@@ -306,18 +309,27 @@
             </div>
           </div>
 
-          <!-- Second Row: Model Picker & Actions Toolbar -->
+          <!-- Second Row: Custom Apple Model Selector Popover & Toolbar -->
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex-1 min-w-[200px]">
-              <select id="source-model-b" onchange="onSourceModelChanged('b')" class="apple-input w-full text-xs px-2.5 py-1.5 text-zinc-200">
-                <option value="custom">✍️ Custom Response (Manual / Paste)</option>
-                <option value="gemini:gemini-3.5-flash-lite">⚡ Gemini 3.5 Flash-Lite (Live)</option>
-                <option value="gemini:gemini-flash-latest">⚡ Gemini Flash Latest (Live)</option>
-                <option value="openai:gpt-4o-mini">⚡ OpenAI gpt-4o-mini (Live)</option>
-                <option value="ollama:llama3.2">🦙 Ollama Llama 3.2 (Local)</option>
-                <option value="ollama:qwen2.5">🦙 Ollama Qwen 2.5 (Local)</option>
-              </select>
+            <input type="hidden" id="source-model-b" value="custom">
+
+            <div class="relative flex-1 min-w-[210px]" id="dropdown-wrapper-b">
+              <button type="button" onclick="toggleModelDropdown('b')" id="dropdown-btn-b" class="apple-input w-full flex items-center justify-between px-3 py-1.5 text-xs text-zinc-200 hover:border-white/20 transition">
+                <span id="selected-model-text-b" class="truncate font-medium">Custom Response (Manual Entry)</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-zinc-400 ml-1.5 shrink-0"></i>
+              </button>
+
+              <!-- Popover Menu -->
+              <div id="dropdown-menu-b" class="hidden absolute left-0 top-full mt-1.5 w-full z-40 rounded-xl bg-[#1c1c22]/95 backdrop-blur-2xl border border-white/10 p-1 shadow-2xl space-y-0.5">
+                <div onclick="selectModelOption('b', 'custom', 'Custom Response (Manual Entry)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white cursor-pointer transition">Custom Response (Manual Entry)</div>
+                <div onclick="selectModelOption('b', 'gemini:gemini-3.5-flash-lite', 'Google Gemini 3.5 Flash-Lite (Live)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white cursor-pointer transition">Google Gemini 3.5 Flash-Lite (Live)</div>
+                <div onclick="selectModelOption('b', 'gemini:gemini-flash-latest', 'Google Gemini Flash Latest (Live)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white cursor-pointer transition">Google Gemini Flash Latest (Live)</div>
+                <div onclick="selectModelOption('b', 'openai:gpt-4o-mini', 'OpenAI gpt-4o-mini (Live)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white cursor-pointer transition">OpenAI gpt-4o-mini (Live)</div>
+                <div onclick="selectModelOption('b', 'ollama:llama3.2', 'Local Ollama Llama 3.2 (Local)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white cursor-pointer transition">Local Ollama Llama 3.2 (Local)</div>
+                <div onclick="selectModelOption('b', 'ollama:qwen2.5', 'Local Ollama Qwen 2.5 (Local)')" class="px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white cursor-pointer transition">Local Ollama Qwen 2.5 (Local)</div>
+              </div>
             </div>
+
             <div class="flex items-center space-x-2">
               <button type="button" onclick="generateCandidate('b')" id="btn-gen-b" class="hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#bf5af2]/20 text-[#bf5af2] hover:bg-[#bf5af2]/30 border border-[#bf5af2]/30 text-xs font-medium transition">
                 <i data-lucide="play" class="w-3 h-3"></i>
@@ -354,7 +366,7 @@
             <div>
               <span class="text-[11px] font-semibold uppercase tracking-wider text-[#86868b] block mb-1">Debiased Consensus Verdict</span>
               <div class="flex items-center space-x-3">
-                <span id="verdict-winner" class="text-2xl font-bold tracking-tight text-white">CANDIDATE A PREFERRED</span>
+                <span id="verdict-winner" class="text-xl font-bold tracking-tight text-white">CANDIDATE A PREFERRED</span>
                 <span id="verdict-confidence" class="px-2.5 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30">95% Confidence</span>
               </div>
             </div>
@@ -369,6 +381,22 @@
                 <i data-lucide="check" class="w-3.5 h-3.5"></i>
                 <span>Length Calibrated</span>
               </div>
+            </div>
+          </div>
+
+          <!-- OPTIONAL INTERACTIVE INDETERMINATE TIEBREAKER RESOLUTION CARD -->
+          <div id="tiebreaker-action-card" class="hidden p-4 rounded-xl bg-[#ff9f0a]/10 border border-[#ff9f0a]/20 space-y-2">
+            <div class="flex items-center space-x-2 text-[#ff9f0a] font-semibold text-xs">
+              <i data-lucide="git-merge" class="w-4 h-4"></i>
+              <span>Order-Sensitivity Flagged • Rubric Score Tiebreaker Available</span>
+            </div>
+            <p id="tiebreaker-detail-text" class="text-xs text-zinc-300 leading-relaxed"></p>
+            <div class="flex flex-wrap items-center gap-3 pt-1">
+              <button onclick="applyRubricTiebreaker()" class="px-3.5 py-1.5 rounded-lg bg-[#ff9f0a] hover:bg-[#ff9f0a]/90 text-black font-semibold text-xs transition shadow-sm flex items-center space-x-1.5">
+                <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+                <span>Resolve via Rubric Differential (<span id="tiebreaker-btn-cand-name">Candidate B</span> Preferred)</span>
+              </button>
+              <span class="text-[11px] text-[#86868b]">or escalate to senior human audit below ↓</span>
             </div>
           </div>
 
@@ -688,6 +716,30 @@
       if (globalPresets.length > 0) {
         loadPreset(0);
       }
+
+      // Close custom dropdowns on clicking outside
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('#dropdown-wrapper-a')) {
+          document.getElementById('dropdown-menu-a').classList.add('hidden');
+        }
+        if (!e.target.closest('#dropdown-wrapper-b')) {
+          document.getElementById('dropdown-menu-b').classList.add('hidden');
+        }
+      });
+    }
+
+    function toggleModelDropdown(cand) {
+      const menu = document.getElementById(`dropdown-menu-${cand}`);
+      const otherCand = cand === 'a' ? 'b' : 'a';
+      document.getElementById(`dropdown-menu-${otherCand}`).classList.add('hidden');
+      menu.classList.toggle('hidden');
+    }
+
+    function selectModelOption(cand, val, label) {
+      document.getElementById(`source-model-${cand}`).value = val;
+      document.getElementById(`selected-model-text-${cand}`).innerText = label;
+      document.getElementById(`dropdown-menu-${cand}`).classList.add('hidden');
+      onSourceModelChanged(cand);
     }
 
     async function loadGuidelineCount() {
@@ -698,7 +750,7 @@
         const badge = document.getElementById('guidelines-count-badge');
         if (badge) {
           const total = data.total || 0;
-          badge.innerText = `${total} Exemplars`;
+          badge.innerText = `(${total} Active Exemplars)`;
           badge.title = `${total} golden alignment exemplars actively injected in-context`;
         }
       } catch (e) {
@@ -765,19 +817,18 @@
       document.getElementById('response-b-input').value = item.response_b;
       document.getElementById('model-a-name').value = item.model_a_name || "Candidate A";
       document.getElementById('model-b-name').value = item.model_b_name || "Candidate B";
-      document.getElementById('source-model-a').value = 'custom';
-      document.getElementById('source-model-b').value = 'custom';
-      onSourceModelChanged('a');
-      onSourceModelChanged('b');
+      
+      selectModelOption('a', 'custom', 'Custom Response (Manual Entry)');
+      selectModelOption('b', 'custom', 'Custom Response (Manual Entry)');
       updateWordCounts();
       document.getElementById('results-panel').classList.add('hidden');
     }
 
     function onSourceModelChanged(cand) {
-      const select = document.getElementById(`source-model-${cand}`);
+      const val = document.getElementById(`source-model-${cand}`).value;
       const btn = document.getElementById(`btn-gen-${cand}`);
       const nameInput = document.getElementById(`model-${cand}-name`);
-      const val = select.value;
+      
       if (val === 'custom') {
         btn.classList.add('hidden');
         if (nameInput.value.includes('gemini') || nameInput.value.includes('gpt') || nameInput.value.includes('llama') || nameInput.value.includes('qwen')) {
@@ -803,8 +854,7 @@
     }
 
     async function generateCandidate(cand) {
-      const select = document.getElementById(`source-model-${cand}`);
-      const val = select.value;
+      const val = document.getElementById(`source-model-${cand}`).value;
       if (val === 'custom') {
         alert("Select a live model in the dropdown first (e.g. Gemini, OpenAI, or Ollama).");
         return;
@@ -1023,7 +1073,7 @@
         winnerElement.className = "text-xl font-bold tracking-tight text-[#ff453a]";
         heroCard.classList.add('border-l-4', 'border-l-[#ff453a]');
         confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/30";
-        confElement.innerText = "Order Inconsistency (Audit Required)";
+        confElement.innerText = "Order Inconsistency Flagged";
         setHumanChoice('indeterminate');
       }
 
@@ -1045,6 +1095,18 @@
       } else {
         verbBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20";
         verbBadge.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Length Calibrated</span>`;
+      }
+
+      // Interactive Indeterminate Tiebreaker Option Card
+      const tiebreakerCard = document.getElementById('tiebreaker-action-card');
+      if (winner === "indeterminate" && data.can_resolve_tiebreaker) {
+        tiebreakerCard.classList.remove('hidden');
+        document.getElementById('tiebreaker-detail-text').innerText = data.tiebreaker_detail;
+        document.getElementById('tiebreaker-btn-cand-name').innerText = data.tiebreaker_candidate === 'model_a' ? (data.model_a_name || 'Candidate A') : (data.model_b_name || 'Candidate B');
+        window.currentTiebreakerCandidate = data.tiebreaker_candidate;
+        window.currentTiebreakerCandName = data.tiebreaker_candidate === 'model_a' ? (data.model_a_name || 'Candidate A') : (data.model_b_name || 'Candidate B');
+      } else {
+        tiebreakerCard.classList.add('hidden');
       }
 
       // Rationale
@@ -1095,6 +1157,36 @@
 
       lucide.createIcons();
       document.getElementById('results-panel').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function applyRubricTiebreaker() {
+      if (!window.currentTiebreakerCandidate) return;
+      const cand = window.currentTiebreakerCandidate;
+      const candName = window.currentTiebreakerCandName || (cand === 'model_a' ? 'Candidate A' : 'Candidate B');
+      
+      const winnerElement = document.getElementById('verdict-winner');
+      const confElement = document.getElementById('verdict-confidence');
+      const heroCard = winnerElement.closest('.apple-card');
+
+      heroCard.className = heroCard.className.replace(/border-l-\[\S+\]/g, '');
+
+      if (cand === 'model_a') {
+        winnerElement.innerText = "CANDIDATE A PREFERRED (RESOLVED VIA TIEBREAKER)";
+        winnerElement.className = "text-xl font-bold tracking-tight text-[#0071e3]";
+        heroCard.classList.add('border-l-4', 'border-l-[#0071e3]');
+        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30";
+        confElement.innerText = `60% Confidence • Weak Margin (Positional Variance Flagged)`;
+        setHumanChoice('model_a');
+      } else {
+        winnerElement.innerText = "CANDIDATE B PREFERRED (RESOLVED VIA TIEBREAKER)";
+        winnerElement.className = "text-xl font-bold tracking-tight text-[#bf5af2]";
+        heroCard.classList.add('border-l-4', 'border-l-[#bf5af2]');
+        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#bf5af2]/15 text-[#bf5af2] border border-[#bf5af2]/30";
+        confElement.innerText = `60% Confidence • Weak Margin (Positional Variance Flagged)`;
+        setHumanChoice('model_b');
+      }
+
+      document.getElementById('tiebreaker-action-card').classList.add('hidden');
     }
 
     function renderHumanAuditStation(scoresMap) {
