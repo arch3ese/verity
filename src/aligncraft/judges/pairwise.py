@@ -35,8 +35,13 @@ EVALUATION RULES:
      * Score 3.0–3.5 represents acceptable adherence with minor lapses.
      * Score 4.0–5.0 represents high to flawless adherence across all positive and negative constraints.
 3. SEMANTIC VOID / PURE GIBBERISH: A candidate that submits non-lexical noise, random repeating letters (e.g. 'EeEeEeEe...'), or refuses to answer the actual task MUST receive 1.0 on Instruction Following. Pure noise or gibberish CANNOT WIN over a communicative, informative response.
-4. VERBOSITY BIAS: Do NOT favor a longer response simply because it appears comprehensive. Check for fluff, hallucination, or filler.
-5. Output your evaluation strictly as valid JSON conforming to the requested schema.
+4. STRICT TIE AVOIDANCE POLICY:
+   - In professional AI data annotation, TIES ARE STRICTLY DISCOURAGED and should be treated as an absolute last resort.
+   - A tie is ONLY permissible if both completions are truly 100% equivalent across all criteria.
+   - If Candidate A or Candidate B has even a slight advantage in any dimension (e.g., a score difference of 4 vs 3 in Style, Factuality, or Instruction Following), you MUST award that candidate the win with margin: 'slight' (or 'moderate').
+   - NEVER output "tie" when one candidate outperforms the other in any rubric dimension score.
+5. VERBOSITY BIAS: Do NOT favor a longer response simply because it appears comprehensive. Check for fluff, hallucination, or filler.
+6. Output your evaluation strictly as valid JSON conforming to the requested schema.
 """
 
 
@@ -62,7 +67,7 @@ class PairwiseJudge:
         constraints_str = "\n".join(f"- {c}" for c in sample.constraints) if sample.constraints else "None"
         ground_truth_str = sample.reference_ground_truth or "None provided"
 
-        calibration_text = GuidelineBank.format_calibration_prompt() if use_human_calibration else ""
+        calibration_text = GuidelineBank.format_calibration_prompt(current_prompt=sample.prompt) if use_human_calibration else ""
 
         human_prompt = f"""### EVALUATION TASK
 **Sample ID**: {sample.id}
@@ -149,12 +154,19 @@ Only return JSON. No introductory pleasantries."""
         else:
             raw_text = str(result)
 
-        return self._parse_json_verdict(raw_text, audit=audit)
+        return self._parse_json_verdict(
+            raw_text,
+            audit=audit,
+            sample=sample,
+            use_human_calibration=use_human_calibration
+        )
 
     def _parse_json_verdict(
         self,
         text: str,
-        audit: Optional[Any] = None
+        audit: Optional[Any] = None,
+        sample: Optional[PromptSample] = None,
+        use_human_calibration: bool = False,
     ) -> PairwiseVerdict:
         """Robustly extracts JSON verdict from model response with markdown stripping, regex fallback, and programmatic guardrails."""
         clean = text.strip()
@@ -202,15 +214,43 @@ Only return JSON. No introductory pleasantries."""
                 detected_errors_model_b=[]
             )
 
-        if audit:
-            verdict = self._apply_verification_guardrails(verdict, audit)
+        # Enforce strict tie-avoidance: reconcile winner with dimension scores
+        if verdict and verdict.dimension_scores:
+            weight_map = {
+                RatingDimension.SAFETY_HARM: 3.0,
+                RatingDimension.INSTRUCTION_FOLLOWING: 2.5,
+                RatingDimension.FACTUALITY: 2.0,
+                RatingDimension.REASONING_LOGIC: 1.5,
+                RatingDimension.STYLE_CONCISENESS: 1.0,
+            }
+            total_a = sum(weight_map.get(ds.dimension, 1.0) * ds.score_a for ds in verdict.dimension_scores)
+            total_b = sum(weight_map.get(ds.dimension, 1.0) * ds.score_b for ds in verdict.dimension_scores)
+            diff = total_a - total_b
+
+            if verdict.winner == PreferenceChoice.TIE:
+                if diff >= 0.2:
+                    verdict.winner = PreferenceChoice.MODEL_A
+                    verdict.margin = "slight" if diff < 2.0 else "clear"
+                elif diff <= -0.2:
+                    verdict.winner = PreferenceChoice.MODEL_B
+                    verdict.margin = "slight" if diff > -2.0 else "clear"
+
+        if audit or (use_human_calibration and sample):
+            verdict = self._apply_verification_guardrails(
+                verdict,
+                audit=audit,
+                sample=sample,
+                use_human_calibration=use_human_calibration
+            )
 
         return verdict
 
     def _apply_verification_guardrails(
         self,
         verdict: PairwiseVerdict,
-        audit: Any
+        audit: Optional[Any] = None,
+        sample: Optional[PromptSample] = None,
+        use_human_calibration: bool = False,
     ) -> PairwiseVerdict:
         """
         Enforces neuro-symbolic ground truth from deterministic audit:
@@ -269,6 +309,18 @@ Only return JSON. No introductory pleasantries."""
                     reasons.append("Neuro-Symbolic Override: Candidate B was detected as non-communicative noise and disqualified from winning.")
                 else:
                     winner = PreferenceChoice.TIE
+
+        # 3. Ground-Truth Senior Human Annotator Calibration Override
+        if use_human_calibration and sample and sample.prompt:
+            exact_override = GuidelineBank.find_exact_prompt_override(sample.prompt)
+            if exact_override:
+                hw = exact_override.get("human_preferred_winner")
+                if hw == "model_a":
+                    winner = PreferenceChoice.MODEL_A
+                    reasons.append(f"Calibrated by Senior Human Annotator Ground-Truth: {exact_override.get('annotator_rationale')}")
+                elif hw == "model_b":
+                    winner = PreferenceChoice.MODEL_B
+                    reasons.append(f"Calibrated by Senior Human Annotator Ground-Truth: {exact_override.get('annotator_rationale')}")
 
         return PairwiseVerdict(
             winner=winner,

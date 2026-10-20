@@ -81,6 +81,21 @@ class GuidelineBank:
         return cls._ensure_initialized()
 
     @classmethod
+    def find_exact_prompt_override(cls, prompt: str) -> Optional[Dict[str, Any]]:
+        """Searches for an active human annotator override matching the given prompt."""
+        if not prompt:
+            return None
+        guidelines = cls.get_all_guidelines()
+        target = prompt.strip().rstrip(".").lower()
+        for g in reversed(guidelines):
+            g_prompt = g.get("prompt", "").strip().rstrip(".").lower()
+            if not g_prompt:
+                continue
+            if g.get("is_active", True) and (g_prompt == target or target.startswith(g_prompt) or g_prompt.startswith(target)):
+                return g
+        return None
+
+    @classmethod
     def add_human_override_guideline(
         cls,
         prompt: str,
@@ -95,11 +110,11 @@ class GuidelineBank:
         new_item = {
             "id": new_id,
             "scenario_focus": scenario_focus,
-            "prompt": prompt[:120],
+            "prompt": prompt.strip(),
             "constraints": constraints,
             "human_preferred_winner": human_winner,
             "annotator_rationale": annotator_rationale,
-            "key_alignment_rule": f"Annotator Calibration: {annotator_rationale[:160]}",
+            "key_alignment_rule": f"Annotator Calibration: {annotator_rationale[:200]}",
             "is_active": True
         }
         guidelines.append(new_item)
@@ -108,21 +123,43 @@ class GuidelineBank:
         return new_item
 
     @classmethod
-    def format_calibration_prompt(cls, max_exemplars: int = 3) -> str:
+    def format_calibration_prompt(
+        cls,
+        current_prompt: Optional[str] = None,
+        max_exemplars: int = 3
+    ) -> str:
         """Formats the active human alignment exemplars into the judge's prompt."""
         guidelines = [g for g in cls.get_all_guidelines() if g.get("is_active", True)]
         if not guidelines:
             return ""
 
-        active_subset = guidelines[-max_exemplars:]
         lines = [
-            "\n### SENIOR HUMAN ANNOTATOR ALIGNMENT GUIDELINES & CALIBRATION EXEMPLARS",
+            "\n### SENIOR HUMAN ANNOTATOR ALIGNMENT GUIDELINES & CALIBRATION STANDARDS",
             "You MUST align your grading decisions with these human-established gold-standard calibration rules:"
         ]
+
+        # 1. If an exact human audit exists for this prompt, prioritize it as mandatory ground-truth!
+        exact_override = cls.find_exact_prompt_override(current_prompt) if current_prompt else None
+        if exact_override:
+            hw = exact_override.get("human_preferred_winner", "tie")
+            hw_label = "Candidate A Preferred" if hw == "model_a" else ("Candidate B Preferred" if hw == "model_b" else "Equally Rated (Tie)")
+            lines.append("\n[MANDATORY AUDIT GROUND-TRUTH ON THIS EXACT PROMPT]:")
+            lines.append(f"- Prompt: \"{exact_override.get('prompt', '')}\"")
+            lines.append(f"- Senior Annotator Verdict: {hw_label}")
+            lines.append(f"- Annotator Calibration Rationale: \"{exact_override.get('annotator_rationale', '')}\"")
+            lines.append("- Calibration Mandate: You MUST adhere to this annotator decision. Ties are strictly avoided if one candidate has even a marginal advantage.")
+
+        # 2. Add recent exemplars
+        active_subset = guidelines[-max_exemplars:]
         for idx, g in enumerate(active_subset, 1):
+            if exact_override and g.get("id") == exact_override.get("id"):
+                continue
+            hw = g.get("human_preferred_winner", "tie")
+            hw_label = "Candidate A Preferred" if hw == "model_a" else ("Candidate B Preferred" if hw == "model_b" else "Equally Rated (Tie)")
             lines.append(f"\n[Exemplar {idx}] {g.get('scenario_focus', 'Alignment Case')}:")
             lines.append(f"- Alignment Principle: {g.get('key_alignment_rule', '')}")
+            lines.append(f"- Ground-Truth Verdict: {hw_label}")
             lines.append(f"- Annotator Rationale: \"{g.get('annotator_rationale', '')}\"")
 
-        lines.append("\nApply these human alignment standards when resolving borderline, partial, or multi-constraint tradeoffs.")
+        lines.append("\nApply these human alignment standards when resolving borderline, partial, or multi-constraint tradeoffs. Never declare a tie when one candidate has even a slight rubric advantage.")
         return "\n".join(lines)

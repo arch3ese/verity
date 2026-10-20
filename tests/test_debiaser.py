@@ -118,3 +118,88 @@ def test_verbosity_bias_flag():
     )
 
     assert eval_result.verbosity_bias_flag is True
+
+
+def test_tie_reconciled_when_dimension_score_diff_exists():
+    """Verify that ties are strictly avoided when one model has a rubric score advantage (e.g. 4 vs 3)."""
+    def tie_with_score_diff_handler(msg: str) -> str:
+        cand_a_part = msg.split("### CANDIDATE B:")[0]
+        # Response B is the better response regardless of order
+        if "Response B text" in cand_a_part:
+            score_a, score_b = 4.0, 3.0
+        else:
+            score_a, score_b = 3.0, 4.0
+
+        return json.dumps({
+            "winner": "tie",  # LLM erroneously called it a tie
+            "margin": "slight",
+            "dimension_scores": [
+                {"dimension": "instruction_following", "score_a": 4.0, "score_b": 4.0, "justification": "Equal"},
+                {"dimension": "factuality", "score_a": 4.0, "score_b": 4.0, "justification": "Equal"},
+                {"dimension": "reasoning_logic", "score_a": 4.0, "score_b": 4.0, "justification": "Equal"},
+                {"dimension": "safety_harm", "score_a": 5.0, "score_b": 5.0, "justification": "Equal"},
+                {"dimension": "style_conciseness", "score_a": score_a, "score_b": score_b, "justification": "Tone difference"}
+            ],
+            "overall_reasoning": "Both models are good but one has slightly better style.",
+            "detected_errors_model_a": [],
+            "detected_errors_model_b": []
+        })
+
+    mock_llm = MockChatModel(response_handler=tie_with_score_diff_handler)
+    judge = PairwiseJudge(mock_llm)
+    debiaser = DebiasingJudge(judge)
+
+    sample = PromptSample(id="test-tie-avoidance", prompt="Prompt testing tie avoidance")
+    eval_result = debiaser.evaluate_with_debiasing(
+        sample=sample,
+        response_a="Response A text",
+        response_b="Response B text",
+    )
+
+    # Model B had 4.0 on style vs 3.0 for A -> Model B must be preferred, NOT a tie!
+    assert eval_result.final_consensus_winner == PreferenceChoice.MODEL_B
+    assert eval_result.forward_verdict.winner == PreferenceChoice.MODEL_B
+
+
+def test_human_ground_truth_calibration_overrides_tie():
+    """Verify that submitting a human audit and enabling calibration overrides an AI tie on that exact prompt."""
+    from aligncraft.alignment.guidelines import GuidelineBank
+    calib_prompt = "Explain why the sky appears blue during daytime."
+    GuidelineBank.add_human_override_guideline(
+        prompt=calib_prompt,
+        constraints=[],
+        human_winner="model_b",
+        annotator_rationale="Candidate B provides Rayleigh scattering explanation whereas Candidate A is too brief.",
+        scenario_focus="Sky Color Audit"
+    )
+
+    # Even if LLM erroneously outputs a tie:
+    def tie_handler(msg: str) -> str:
+        return json.dumps({
+            "winner": "tie",
+            "margin": "slight",
+            "dimension_scores": [
+                {"dimension": "factuality", "score_a": 3.0, "score_b": 3.0, "justification": "Equal"}
+            ],
+            "overall_reasoning": "Both candidates gave similar answers.",
+            "detected_errors_model_a": [],
+            "detected_errors_model_b": []
+        })
+
+    mock_llm = MockChatModel(response_handler=tie_handler)
+    judge = PairwiseJudge(mock_llm)
+    debiaser = DebiasingJudge(judge)
+
+    sample = PromptSample(id="test-human-calib", prompt=calib_prompt)
+    eval_result = debiaser.evaluate_with_debiasing(
+        sample=sample,
+        response_a="The sky is blue because of scattering.",
+        response_b="The sky appears blue because sunlight undergoes Rayleigh scattering by air molecules.",
+        use_human_calibration=True,
+    )
+
+    # The human audit preferred Candidate B -> calibration must enforce Candidate B!
+    assert eval_result.final_consensus_winner == PreferenceChoice.MODEL_B
+    assert "Human Ground-Truth Calibrated" in eval_result.summary_critique
+
+

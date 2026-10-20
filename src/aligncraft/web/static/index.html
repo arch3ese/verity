@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
     tailwind.config = {
@@ -15,15 +15,23 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
           },
           colors: {
-            brand: {
-              50: '#eef2ff',
-              500: '#6366f1',
-              600: '#4f46e5',
-              700: '#4338ca',
+            apple: {
+              blue: '#0071e3',
+              blueHover: '#0077ed',
+              darkBg: '#000000',
+              panel: '#121215',
+              panelElevated: '#18181d',
+              border: 'rgba(255, 255, 255, 0.08)',
+              borderFocus: 'rgba(0, 113, 227, 0.6)',
+              subtext: '#86868b',
+              green: '#30d158',
+              amber: '#ff9f0a',
+              red: '#ff453a',
+              purple: '#bf5af2'
             }
           }
         }
@@ -31,155 +39,237 @@
     }
   </script>
   <style>
-    body { font-family: 'Inter', sans-serif; background-color: #0b0f19; }
-    .glass-card { background: rgba(17, 24, 39, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
-    .glass-card-hover:hover { border-color: rgba(99, 102, 241, 0.4); box-shadow: 0 0 25px rgba(99, 102, 241, 0.1); }
-    .code-font { font-family: 'JetBrains Mono', monospace; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, sans-serif;
+      background-color: #000000;
+      color: #f5f5f7;
+      letter-spacing: -0.011em;
+    }
+    .apple-card {
+      background-color: #121215;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 1.25rem;
+    }
+    .apple-card-elevated {
+      background-color: #18181d;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 1.25rem;
+    }
+    .apple-input {
+      background-color: #0a0a0d;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 0.75rem;
+      color: #f5f5f7;
+      transition: all 0.15s ease;
+    }
+    .apple-input:focus {
+      outline: none;
+      border-color: #0071e3;
+      box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
+    }
+    .code-font {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    }
+    /* iOS Style Switch */
+    .ios-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .ios-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .ios-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #38383a;
+      transition: .25s ease;
+      border-radius: 24px;
+    }
+    .ios-slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .25s ease;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    input:checked + .ios-slider {
+      background-color: #0071e3;
+    }
+    input:checked + .ios-slider:before {
+      transform: translateX(20px);
+    }
   </style>
 </head>
-<body class="text-slate-100 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col antialiased selection:bg-[#0071e3]/30">
 
-  <!-- TOP NAVBAR -->
-  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+  <!-- TOP APP NAVBAR (macOS Style) -->
+  <header class="border-b border-white/[0.08] bg-[#000000]/80 backdrop-blur-xl sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+      
+      <!-- Brand & Title -->
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <i data-lucide="scale" class="w-5 h-5 text-white"></i>
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-b from-[#2c2c2e] to-[#1c1c1e] border border-white/10 flex items-center justify-center shadow-sm">
+          <i data-lucide="scale" class="w-4 h-4 text-[#0071e3]"></i>
         </div>
-        <div>
-          <div class="flex items-center space-x-2">
-            <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">AlignCraft Studio</span>
-            <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">Enterprise RLHF</span>
-          </div>
-          <p class="text-xs text-slate-400">AI Training & LLM Judge Debiasing Platform</p>
+        <div class="flex items-baseline space-x-2">
+          <span class="font-semibold text-sm tracking-tight text-white">AlignCraft</span>
+          <span class="text-[11px] text-[#86868b] font-medium hidden sm:inline">AI Evaluation & Alignment Studio</span>
         </div>
       </div>
 
-      <!-- Navigation Tabs -->
-      <nav class="hidden md:flex space-x-1 bg-slate-800/60 p-1 rounded-xl border border-slate-700/50">
-        <button onclick="switchTab('reviewer')" id="tab-reviewer" class="tab-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all bg-indigo-600 text-white shadow-sm">Reviewer Studio</button>
-        <button onclick="switchTab('benchmark')" id="tab-benchmark" class="tab-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white">Benchmark Suite</button>
-        <button onclick="switchTab('rubrics')" id="tab-rubrics" class="tab-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white">Annotation Rubrics</button>
+      <!-- Segmented Nav Controls (macOS segmented pill) -->
+      <nav class="flex items-center space-x-1 bg-[#1c1c1f] p-1 rounded-xl border border-white/10">
+        <button onclick="switchTab('reviewer')" id="tab-reviewer" class="tab-btn px-3 py-1 rounded-lg text-xs font-medium transition-all bg-[#2c2c2e] text-white shadow-sm">Reviewer</button>
+        <button onclick="switchTab('benchmark')" id="tab-benchmark" class="tab-btn px-3 py-1 rounded-lg text-xs font-medium transition-all text-[#86868b] hover:text-white">Benchmarks</button>
+        <button onclick="switchTab('rubrics')" id="tab-rubrics" class="tab-btn px-3 py-1 rounded-lg text-xs font-medium transition-all text-[#86868b] hover:text-white">Rubrics</button>
       </nav>
 
-      <!-- API Key Status / Setup Modal Button -->
-      <div class="flex items-center space-x-3">
-        <button onclick="openApiKeyModal()" id="api-status-btn" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-indigo-500 transition-colors">
-          <span id="api-status-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span id="api-status-text" class="text-slate-300">Google Gemini API</span>
-          <i data-lucide="settings" class="w-3.5 h-3.5 text-slate-400"></i>
+      <!-- Settings & Provider Status -->
+      <div class="flex items-center space-x-2">
+        <button onclick="openApiKeyModal()" id="api-status-btn" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg bg-[#18181d] border border-white/10 hover:border-white/20 transition text-[#86868b] hover:text-white">
+          <span id="api-status-dot" class="w-2 h-2 rounded-full bg-[#30d158]"></span>
+          <span id="api-status-text" class="text-zinc-300 font-medium text-[11px]">Gemini Ready</span>
+          <i data-lucide="sliders" class="w-3.5 h-3.5 ml-1 text-[#86868b]"></i>
         </button>
       </div>
     </div>
   </header>
 
-  <!-- MAIN CONTENT CONTAINER -->
-  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+  <!-- MAIN APP CONTAINER -->
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6">
 
     <!-- ========================================== -->
-    <!-- 1. PAIRWISE REVIEWER STUDIO TAB -->
+    <!-- 1. PAIRWISE REVIEWER STUDIO VIEW -->
     <!-- ========================================== -->
     <div id="view-reviewer" class="space-y-6">
 
-      <!-- PRESET SCENARIO SELECTOR -->
-      <div class="glass-card rounded-2xl p-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+      <!-- PRESET SCENARIO SELECTOR (Clean Apple Segmented Row) -->
+      <div class="apple-card p-4 space-y-3">
+        <div class="flex items-center justify-between">
           <div class="flex items-center space-x-2">
-            <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Quick-Load Enterprise Evaluation Presets:</span>
+            <i data-lucide="compass" class="w-4 h-4 text-[#0071e3]"></i>
+            <span class="text-xs font-semibold text-zinc-300">Quick-Load Evaluation Scenarios</span>
           </div>
-          <span class="text-xs text-slate-500">Standardized AI Alignment & RLHF Benchmark Scenarios</span>
+          <span class="text-[11px] text-[#86868b]">Industry RLHF Standard Benchmarks</span>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5" id="presets-container">
-          <!-- Preset buttons dynamically injected -->
-          <button onclick="loadPreset(0)" class="preset-btn text-left p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800 transition text-xs">
-            <span class="font-semibold text-indigo-300 block mb-0.5">🌿 Negative Constraint</span>
-            <span class="text-slate-400 text-[11px] block truncate">Summary with NO letter 'e'</span>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="presets-container">
+          <button onclick="loadPreset(0)" class="preset-btn text-left p-2.5 rounded-xl bg-[#18181d] border border-white/5 hover:border-white/20 transition group">
+            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">🌿 Negative Constraint</span>
+            <span class="text-[11px] text-[#86868b] block truncate mt-0.5">Summary without letter 'e'</span>
           </button>
-          <button onclick="loadPreset(1)" class="preset-btn text-left p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800 transition text-xs">
-            <span class="font-semibold text-emerald-300 block mb-0.5">🔢 Sycophancy Trap</span>
-            <span class="text-slate-400 text-[11px] block truncate">13 * 17 = 231 false claim</span>
+          <button onclick="loadPreset(1)" class="preset-btn text-left p-2.5 rounded-xl bg-[#18181d] border border-white/5 hover:border-white/20 transition group">
+            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">🔢 Sycophancy Trap</span>
+            <span class="text-[11px] text-[#86868b] block truncate mt-0.5">13 * 17 = 231 false claim</span>
           </button>
-          <button onclick="loadPreset(2)" class="preset-btn text-left p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800 transition text-xs">
-            <span class="font-semibold text-amber-300 block mb-0.5">📋 Strict Formatting</span>
-            <span class="text-slate-400 text-[11px] block truncate">Raw JSON without markdown</span>
+          <button onclick="loadPreset(2)" class="preset-btn text-left p-2.5 rounded-xl bg-[#18181d] border border-white/5 hover:border-white/20 transition group">
+            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">📋 Strict Formatting</span>
+            <span class="text-[11px] text-[#86868b] block truncate mt-0.5">Raw JSON without markdown</span>
           </button>
-          <button onclick="loadPreset(3)" class="preset-btn text-left p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800 transition text-xs">
-            <span class="font-semibold text-purple-300 block mb-0.5">🌕 Hallucination Spotting</span>
-            <span class="text-slate-400 text-[11px] block truncate">Apollo 19 lunar mission</span>
+          <button onclick="loadPreset(3)" class="preset-btn text-left p-2.5 rounded-xl bg-[#18181d] border border-white/5 hover:border-white/20 transition group">
+            <span class="text-xs font-medium text-white block group-hover:text-[#0071e3] transition">🌕 Hallucination Spotting</span>
+            <span class="text-[11px] text-[#86868b] block truncate mt-0.5">Apollo 19 lunar mission</span>
           </button>
         </div>
       </div>
 
       <!-- PROMPT & CONSTRAINTS SPECIFICATION -->
-      <div class="glass-card rounded-2xl p-5 space-y-4">
+      <div class="apple-card p-5 space-y-4">
         <div>
           <div class="flex items-center justify-between mb-2">
-            <label class="text-sm font-semibold text-slate-200 flex items-center space-x-2">
-              <i data-lucide="message-square" class="w-4 h-4 text-indigo-400"></i>
-              <span>Evaluation Prompt</span>
+            <label class="text-xs font-semibold text-zinc-200 flex items-center space-x-1.5">
+              <i data-lucide="message-square" class="w-3.5 h-3.5 text-[#0071e3]"></i>
+              <span>Evaluation Task Prompt</span>
             </label>
             <div class="flex items-center space-x-2">
-              <label class="text-xs text-slate-400">Live AI Judge:</label>
-              <select id="judge-provider" onchange="onJudgeProviderChanged()" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2.5 py-1 text-slate-200 focus:outline-none focus:border-indigo-500">
-                <option value="gemini">Google Gemini (3.5 Flash-Lite / auto-failover)</option>
+              <span class="text-[11px] text-[#86868b]">AI Judge:</span>
+              <select id="judge-provider" onchange="onJudgeProviderChanged()" class="apple-input text-xs px-2.5 py-1 text-zinc-300">
+                <option value="gemini">Google Gemini (3.5 Flash-Lite / Latest)</option>
                 <option value="openai">OpenAI (gpt-4o-mini)</option>
-                <option value="ollama">Local Ollama (llama3.2 / offline)</option>
+                <option value="ollama">Local Ollama (llama3.2 offline)</option>
               </select>
             </div>
           </div>
-          <textarea id="prompt-input" rows="2" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 code-font focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" placeholder="Enter benchmark prompt..."></textarea>
+          <textarea id="prompt-input" rows="2" class="apple-input w-full p-3 text-xs leading-relaxed code-font" placeholder="Enter benchmark task prompt..."></textarea>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <div>
-            <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
-              <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-amber-400"></i>
-              <span>Explicit Constraints / Negative Rules (comma separated)</span>
+            <label class="text-xs font-medium text-zinc-300 mb-1.5 flex items-center space-x-1.5">
+              <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-[#ff9f0a]"></i>
+              <span>Explicit Negative Constraints (comma separated)</span>
             </label>
-            <input id="constraints-input" type="text" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 code-font focus:outline-none focus:border-indigo-500" placeholder="e.g. Do not use the letter 'e', Output valid JSON only">
+            <input id="constraints-input" type="text" class="apple-input w-full px-3 py-2 text-xs code-font" placeholder="e.g. Do not use the letter 'e', Output valid JSON only">
           </div>
           <div>
-            <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
-              <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <label class="text-xs font-medium text-zinc-300 mb-1.5 flex items-center space-x-1.5">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5 text-[#30d158]"></i>
               <span>Reference Ground Truth (Optional)</span>
             </label>
-            <input id="ground-truth-input" type="text" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 code-font focus:outline-none focus:border-indigo-500" placeholder="e.g. 13 * 17 = 221">
+            <input id="ground-truth-input" type="text" class="apple-input w-full px-3 py-2 text-xs code-font" placeholder="e.g. 13 * 17 = 221">
           </div>
         </div>
       </div>
 
-      <!-- DUAL LIVE GENERATION & CONTROLS -->
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/50 border border-slate-800">
-        <div class="flex items-center space-x-2">
-          <button type="button" onclick="generateBothCandidates()" id="btn-gen-both" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-indigo-500/40 text-indigo-300 font-semibold text-xs shadow-md transition">
-            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
-            <span>⚡ Generate Both Candidates Live</span>
+      <!-- DUAL LIVE GENERATION & CALIBRATION CONTROLS -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 apple-card-elevated">
+        <div class="flex items-center space-x-3">
+          <button type="button" onclick="generateBothCandidates()" id="btn-gen-both" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/10 text-xs font-medium transition shadow-sm">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-[#0071e3]"></i>
+            <span>Generate Both Candidates Live</span>
           </button>
-          <span class="text-[11px] text-slate-400 hidden sm:inline">Query models simultaneously on the prompt & constraints</span>
+          <span class="text-[11px] text-[#86868b] hidden md:inline">Query models simultaneously against prompt and constraints</span>
         </div>
 
-        <!-- Human Calibration Toggle -->
-        <label class="flex items-center space-x-2 cursor-pointer bg-slate-900 border border-slate-700 hover:border-indigo-500 rounded-xl px-3.5 py-2 text-xs text-slate-200 transition">
-          <input type="checkbox" id="toggle-human-calibration" checked class="rounded border-slate-700 text-indigo-600 focus:ring-0">
-          <div class="flex items-center space-x-1.5">
-            <i data-lucide="brain-circuit" class="w-3.5 h-3.5 text-indigo-400"></i>
-            <span class="font-medium">Human Alignment Calibration (Few-Shot)</span>
-            <span id="guidelines-count-badge" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300">Active</span>
+        <!-- Apple iOS Style Toggle Switch for Calibration -->
+        <div class="flex items-center space-x-3 bg-black/40 px-3.5 py-1.5 rounded-xl border border-white/5">
+          <label class="ios-switch">
+            <input type="checkbox" id="toggle-human-calibration" checked>
+            <span class="ios-slider"></span>
+          </label>
+          <div class="text-left">
+            <div class="flex items-center space-x-1.5">
+              <span class="text-xs font-medium text-zinc-200">Few-Shot Human Calibration</span>
+              <span id="guidelines-count-badge" class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-[#0071e3]/20 text-[#0071e3] border border-[#0071e3]/30">3 Exemplars</span>
+            </div>
+            <p class="text-[10px] text-[#86868b]">Injects human annotator decisions in-context to prevent ties</p>
           </div>
-        </label>
+        </div>
       </div>
 
-      <!-- SIDE-BY-SIDE CANDIDATES -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- SIDE-BY-SIDE CANDIDATE CARDS (Refined macOS Layout with NO overflow!) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         
         <!-- CANDIDATE A -->
-        <div class="glass-card rounded-2xl p-5 flex flex-col space-y-3">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2.5 gap-2">
+        <div class="apple-card p-4 flex flex-col space-y-3">
+          <!-- Top Row: Title + Stats -->
+          <div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
             <div class="flex items-center space-x-2">
-              <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
-              <span class="text-xs font-bold text-white uppercase tracking-wider">Candidate A:</span>
-              <select id="source-model-a" onchange="onSourceModelChanged('a')" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2 py-1 text-indigo-300 focus:outline-none focus:border-indigo-500">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#0071e3]"></span>
+              <span class="text-xs font-bold text-white uppercase tracking-wider">Candidate A</span>
+            </div>
+            <div class="flex items-center space-x-1.5 text-[11px] text-[#86868b] code-font">
+              <span id="cand-a-chars">0 chars</span>
+              <span>•</span>
+              <span id="cand-a-words">0 words</span>
+            </div>
+          </div>
+
+          <!-- Second Row: Model Picker & Actions Toolbar -->
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex-1 min-w-[200px]">
+              <select id="source-model-a" onchange="onSourceModelChanged('a')" class="apple-input w-full text-xs px-2.5 py-1.5 text-zinc-200">
                 <option value="custom">✍️ Custom Response (Manual / Paste)</option>
                 <option value="gemini:gemini-3.5-flash-lite">⚡ Gemini 3.5 Flash-Lite (Live)</option>
                 <option value="gemini:gemini-flash-latest">⚡ Gemini Flash Latest (Live)</option>
@@ -188,30 +278,38 @@
                 <option value="ollama:qwen2.5">🦙 Ollama Qwen 2.5 (Local)</option>
               </select>
             </div>
-            
             <div class="flex items-center space-x-2">
-              <button type="button" onclick="generateCandidate('a')" id="btn-gen-a" class="hidden flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50 border border-indigo-500/40 text-[11px] font-semibold transition">
+              <button type="button" onclick="generateCandidate('a')" id="btn-gen-a" class="hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#0071e3]/20 text-[#0071e3] hover:bg-[#0071e3]/30 border border-[#0071e3]/30 text-xs font-medium transition">
                 <i data-lucide="play" class="w-3 h-3"></i>
                 <span>Generate A</span>
               </button>
-              <input id="model-a-name" value="Candidate A" placeholder="Label / Model" class="w-24 sm:w-28 bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-300 px-2 py-0.5 focus:outline-none">
-              <div class="flex items-center space-x-1.5 text-[11px] text-slate-400">
-                <span id="cand-a-chars">0c</span>
-                <span>•</span>
-                <span id="cand-a-words">0w</span>
-              </div>
+              <input id="model-a-name" value="Candidate A" placeholder="Model Label" class="apple-input text-xs px-2.5 py-1.5 w-28 text-zinc-300">
             </div>
           </div>
-          <textarea id="response-a-input" rows="7" oninput="updateWordCounts()" class="flex-1 w-full bg-slate-900/90 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 code-font focus:outline-none focus:border-indigo-500 transition" placeholder="Response candidate A text..."></textarea>
+
+          <!-- Third Row: Completion Text Area -->
+          <textarea id="response-a-input" rows="7" oninput="updateWordCounts()" class="apple-input flex-1 w-full p-3.5 text-xs leading-relaxed code-font" placeholder="Candidate A response completion..."></textarea>
         </div>
 
         <!-- CANDIDATE B -->
-        <div class="glass-card rounded-2xl p-5 flex flex-col space-y-3">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2.5 gap-2">
+        <div class="apple-card p-4 flex flex-col space-y-3">
+          <!-- Top Row: Title + Stats -->
+          <div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
             <div class="flex items-center space-x-2">
-              <span class="w-3 h-3 rounded-full bg-purple-500"></span>
-              <span class="text-xs font-bold text-white uppercase tracking-wider">Candidate B:</span>
-              <select id="source-model-b" onchange="onSourceModelChanged('b')" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2 py-1 text-purple-300 focus:outline-none focus:border-purple-500">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#bf5af2]"></span>
+              <span class="text-xs font-bold text-white uppercase tracking-wider">Candidate B</span>
+            </div>
+            <div class="flex items-center space-x-1.5 text-[11px] text-[#86868b] code-font">
+              <span id="cand-b-chars">0 chars</span>
+              <span>•</span>
+              <span id="cand-b-words">0 words</span>
+            </div>
+          </div>
+
+          <!-- Second Row: Model Picker & Actions Toolbar -->
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex-1 min-w-[200px]">
+              <select id="source-model-b" onchange="onSourceModelChanged('b')" class="apple-input w-full text-xs px-2.5 py-1.5 text-zinc-200">
                 <option value="custom">✍️ Custom Response (Manual / Paste)</option>
                 <option value="gemini:gemini-3.5-flash-lite">⚡ Gemini 3.5 Flash-Lite (Live)</option>
                 <option value="gemini:gemini-flash-latest">⚡ Gemini Flash Latest (Live)</option>
@@ -220,110 +318,105 @@
                 <option value="ollama:qwen2.5">🦙 Ollama Qwen 2.5 (Local)</option>
               </select>
             </div>
-            
             <div class="flex items-center space-x-2">
-              <button type="button" onclick="generateCandidate('b')" id="btn-gen-b" class="hidden flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-purple-600/30 text-purple-300 hover:bg-purple-600/50 border border-purple-500/40 text-[11px] font-semibold transition">
+              <button type="button" onclick="generateCandidate('b')" id="btn-gen-b" class="hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#bf5af2]/20 text-[#bf5af2] hover:bg-[#bf5af2]/30 border border-[#bf5af2]/30 text-xs font-medium transition">
                 <i data-lucide="play" class="w-3 h-3"></i>
                 <span>Generate B</span>
               </button>
-              <input id="model-b-name" value="Candidate B" placeholder="Label / Model" class="w-24 sm:w-28 bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-300 px-2 py-0.5 focus:outline-none">
-              <div class="flex items-center space-x-1.5 text-[11px] text-slate-400">
-                <span id="cand-b-chars">0c</span>
-                <span>•</span>
-                <span id="cand-b-words">0w</span>
-              </div>
+              <input id="model-b-name" value="Candidate B" placeholder="Model Label" class="apple-input text-xs px-2.5 py-1.5 w-28 text-zinc-300">
             </div>
           </div>
-          <textarea id="response-b-input" rows="7" oninput="updateWordCounts()" class="flex-1 w-full bg-slate-900/90 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 code-font focus:outline-none focus:border-purple-500 transition" placeholder="Response candidate B text..."></textarea>
+
+          <!-- Third Row: Completion Text Area -->
+          <textarea id="response-b-input" rows="7" oninput="updateWordCounts()" class="apple-input flex-1 w-full p-3.5 text-xs leading-relaxed code-font" placeholder="Candidate B response completion..."></textarea>
         </div>
+
       </div>
 
-      <!-- RUN EVALUATION CTA BUTTON -->
+      <!-- MAIN CTA ACTION (Apple System Blue Pill) -->
       <div class="flex flex-col items-center justify-center pt-2">
-        <button onclick="runEvaluation()" id="run-eval-btn" class="flex items-center space-x-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white font-semibold text-sm shadow-xl shadow-indigo-600/30 hover:scale-[1.02] active:scale-[0.98] transition-all">
-          <i data-lucide="zap" class="w-4 h-4"></i>
-          <span>Run Debiased AI Judge Evaluation</span>
+        <button onclick="runEvaluation()" id="run-eval-btn" class="flex items-center space-x-2 px-8 py-3 rounded-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-medium text-xs shadow-lg transition active:scale-[0.98]">
+          <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+          <span>Run Debiased AI Evaluation</span>
         </button>
-        <div id="eval-status-indicator" class="hidden text-xs text-indigo-300 font-medium animate-pulse mt-3 text-center flex items-center space-x-2">
-          <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-indigo-400"></i>
-          <span id="eval-status-msg">Querying Gemini Flash in parallel (Pass 1: A vs B & Pass 2: B vs A)...</span>
+        <div id="eval-status-indicator" class="hidden text-xs text-zinc-400 font-medium animate-pulse mt-3 text-center flex items-center space-x-2">
+          <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-[#0071e3]"></i>
+          <span id="eval-status-msg">Evaluating forward and reverse passes...</span>
         </div>
       </div>
 
-      <!-- EVALUATION RESULTS SECTION -->
-      <div id="results-panel" class="hidden space-y-6 pt-4">
+      <!-- EVALUATION RESULTS VIEW -->
+      <div id="results-panel" class="hidden space-y-6 pt-2">
         
-        <!-- WINNER HERO CARD -->
-        <div class="glass-card rounded-2xl p-6 border-l-4 border-l-indigo-500">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <!-- WINNER HERO CARD (Apple Sequoia Style Inspector) -->
+        <div class="apple-card p-6 border-l-4 border-l-[#0071e3] space-y-4">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-1">Debiased Consensus Verdict</span>
+              <span class="text-[11px] font-semibold uppercase tracking-wider text-[#86868b] block mb-1">Debiased Consensus Verdict</span>
               <div class="flex items-center space-x-3">
-                <span id="verdict-winner" class="text-2xl font-black tracking-tight text-white">MODEL A WINS</span>
-                <span id="verdict-confidence" class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">95% Confidence</span>
+                <span id="verdict-winner" class="text-2xl font-bold tracking-tight text-white">CANDIDATE A PREFERRED</span>
+                <span id="verdict-confidence" class="px-2.5 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30">95% Confidence</span>
               </div>
             </div>
 
-            <!-- Bias Badges -->
+            <!-- Bias Status Badges -->
             <div class="flex flex-wrap items-center gap-2">
-              <!-- Positional Bias Badge -->
-              <div id="positional-bias-badge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <div id="positional-bias-badge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20">
                 <i data-lucide="check" class="w-3.5 h-3.5"></i>
                 <span>Order Invariant (A/B = B/A)</span>
               </div>
-              <!-- Verbosity Bias Badge -->
-              <div id="verbosity-bias-badge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <div id="verbosity-bias-badge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20">
                 <i data-lucide="check" class="w-3.5 h-3.5"></i>
                 <span>Length Calibrated</span>
               </div>
             </div>
           </div>
 
-          <!-- SUMMARY CRITIQUE -->
-          <div class="p-4 rounded-xl bg-slate-900/70 border border-slate-800 text-sm text-slate-300 space-y-2">
-            <span class="font-semibold text-xs uppercase tracking-wider text-slate-400 block">LLM-as-a-Judge Step-by-Step Rationale:</span>
+          <!-- RATIONALE EDITORIAL CARD -->
+          <div class="p-4 rounded-xl bg-black/40 border border-white/[0.06] text-xs text-zinc-300 space-y-1.5">
+            <span class="font-semibold text-[11px] uppercase tracking-wider text-[#86868b] block">LLM-as-a-Judge Step-by-Step Rationale:</span>
             <p id="verdict-rationale" class="leading-relaxed"></p>
           </div>
         </div>
 
         <!-- MULTI-DIMENSIONAL RUBRICS BREAKDOWN -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
           
           <!-- DIMENSION SCORES -->
-          <div class="glass-card rounded-2xl p-5 space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-              <span class="text-sm font-bold text-white flex items-center space-x-2">
-                <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-400"></i>
+          <div class="apple-card p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
+              <span class="text-xs font-semibold text-white flex items-center space-x-2">
+                <i data-lucide="bar-chart-3" class="w-3.5 h-3.5 text-[#0071e3]"></i>
                 <span>Multi-Dimensional Rubric Scores</span>
               </span>
-              <span class="text-xs text-slate-400">1.0 (Fail) to 5.0 (Exemplary)</span>
+              <span class="text-[11px] text-[#86868b]">1.0 (Fail) to 5.0 (Exemplary)</span>
             </div>
-            <div id="dimension-bars" class="space-y-3.5">
+            <div id="dimension-bars" class="space-y-3">
               <!-- Dynamically populated -->
             </div>
           </div>
 
           <!-- DETECTED ERROR TAXONOMY -->
-          <div class="glass-card rounded-2xl p-5 space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-              <span class="text-sm font-bold text-white flex items-center space-x-2">
-                <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i>
+          <div class="apple-card p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
+              <span class="text-xs font-semibold text-white flex items-center space-x-2">
+                <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-[#ff9f0a]"></i>
                 <span>Error Taxonomy Violations</span>
               </span>
-              <span class="text-xs text-slate-400">Fine-grained failure tagging</span>
+              <span class="text-[11px] text-[#86868b]">Fine-grained failure tagging</span>
             </div>
             
             <div class="space-y-3">
               <div>
-                <span class="text-xs font-semibold text-indigo-400 block mb-1.5">Candidate A Violations:</span>
+                <span class="text-[11px] font-semibold text-[#0071e3] block mb-1.5">Candidate A Violations:</span>
                 <div id="errors-model-a" class="flex flex-wrap gap-1.5">
-                  <span class="text-xs text-slate-500 italic">None detected</span>
+                  <span class="text-xs text-zinc-500 italic">None detected</span>
                 </div>
               </div>
-              <div class="pt-2 border-t border-slate-800">
-                <span class="text-xs font-semibold text-purple-400 block mb-1.5">Candidate B Violations:</span>
+              <div class="pt-2 border-t border-white/[0.06]">
+                <span class="text-[11px] font-semibold text-[#bf5af2] block mb-1.5">Candidate B Violations:</span>
                 <div id="errors-model-b" class="flex flex-wrap gap-1.5">
-                  <span class="text-xs text-slate-500 italic">None detected</span>
+                  <span class="text-xs text-zinc-500 italic">None detected</span>
                 </div>
               </div>
             </div>
@@ -331,77 +424,77 @@
         </div>
 
         <!-- HUMAN ANNOTATOR MULTI-RUBRIC AUDIT & CALIBRATION STATION -->
-        <div class="glass-card rounded-2xl p-6 border border-indigo-500/30 bg-gradient-to-b from-slate-900/95 to-slate-900/70 space-y-5">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div class="apple-card-elevated p-6 border border-[#0071e3]/30 space-y-5">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
             <div>
               <div class="flex items-center space-x-2">
-                <i data-lucide="user-check" class="w-5 h-5 text-indigo-400"></i>
-                <h3 class="text-base font-bold text-white">Lead Human Annotator Multi-Rubric Audit & IAA Calibration</h3>
+                <i data-lucide="user-check" class="w-4 h-4 text-[#0071e3]"></i>
+                <h3 class="text-sm font-bold text-white">Lead Annotator Multi-Rubric Audit & IAA Calibration</h3>
               </div>
-              <p class="text-xs text-slate-400 mt-0.5">Audit every rubric score (1.0–5.0), provide human reasoning, and calibrate judge agreement vs human ground-truth.</p>
+              <p class="text-xs text-[#86868b] mt-0.5">Audit every rubric score, provide explanatory rationale, and calibrate judge agreement against human ground-truth.</p>
             </div>
 
             <!-- Alignment Stats Header Pill -->
-            <div class="flex items-center space-x-4 bg-slate-800/90 px-4 py-2 rounded-xl border border-slate-700">
+            <div class="flex items-center space-x-4 bg-black/40 px-3.5 py-1.5 rounded-xl border border-white/5">
               <div>
-                <span class="text-[10px] text-slate-400 uppercase font-bold block">Rubric MAE</span>
-                <span id="audit-mae-text" class="text-xs font-bold text-indigo-400">--</span>
+                <span class="text-[10px] text-[#86868b] uppercase font-bold block">Rubric MAE</span>
+                <span id="audit-mae-text" class="text-xs font-bold text-[#0071e3]">--</span>
               </div>
-              <div class="pl-3 border-l border-slate-700">
-                <span class="text-[10px] text-slate-400 uppercase font-bold block">Cohen's Kappa (κ)</span>
-                <span id="kappa-value" class="text-sm font-black text-emerald-400">1.000</span>
+              <div class="pl-3 border-l border-white/10">
+                <span class="text-[10px] text-[#86868b] uppercase font-bold block">Cohen's Kappa (κ)</span>
+                <span id="kappa-value" class="text-xs font-bold text-[#30d158]">1.000</span>
               </div>
             </div>
           </div>
 
           <!-- DYNAMIC 5-TIER HUMAN RUBRIC SCORING GRID -->
-          <div class="space-y-3">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-300 block">1. Multi-Dimensional Rubric Grading:</span>
-            <div id="human-rubrics-grid" class="space-y-2.5">
+          <div class="space-y-2.5">
+            <span class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 block">1. Multi-Dimensional Rubric Grading:</span>
+            <div id="human-rubrics-grid" class="space-y-2">
               <!-- Dynamically populated per rubric dimension -->
             </div>
           </div>
 
           <!-- OVERALL HUMAN VERDICT & RATIONALE -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-white/[0.08]">
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-2">2. Final Categorical Preference:</label>
+              <label class="block text-xs font-semibold text-zinc-300 mb-2">2. Final Categorical Preference:</label>
               <div class="grid grid-cols-2 gap-2" id="human-choice-selector">
-                <button type="button" onclick="setHumanChoice('model_a')" id="btn-choice-model_a" class="human-choice-btn py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:border-indigo-500 transition text-center">
+                <button type="button" onclick="setHumanChoice('model_a')" id="btn-choice-model_a" class="human-choice-btn py-2 px-3 rounded-xl border border-white/10 text-xs font-medium text-zinc-300 hover:border-white/20 transition text-center">
                   Candidate A Preferred
                 </button>
-                <button type="button" onclick="setHumanChoice('model_b')" id="btn-choice-model_b" class="human-choice-btn py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:border-purple-500 transition text-center">
+                <button type="button" onclick="setHumanChoice('model_b')" id="btn-choice-model_b" class="human-choice-btn py-2 px-3 rounded-xl border border-white/10 text-xs font-medium text-zinc-300 hover:border-white/20 transition text-center">
                   Candidate B Preferred
                 </button>
-                <button type="button" onclick="setHumanChoice('tie')" id="btn-choice-tie" class="human-choice-btn py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:border-amber-500 transition text-center">
+                <button type="button" onclick="setHumanChoice('tie')" id="btn-choice-tie" class="human-choice-btn py-2 px-3 rounded-xl border border-white/10 text-xs font-medium text-zinc-300 hover:border-white/20 transition text-center">
                   Equally Rated (Tie)
                 </button>
-                <button type="button" onclick="setHumanChoice('indeterminate')" id="btn-choice-indeterminate" class="human-choice-btn py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:border-rose-500 transition text-center">
+                <button type="button" onclick="setHumanChoice('indeterminate')" id="btn-choice-indeterminate" class="human-choice-btn py-2 px-3 rounded-xl border border-white/10 text-xs font-medium text-zinc-300 hover:border-white/20 transition text-center">
                   Both Rejected
                 </button>
               </div>
             </div>
 
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-2">3. Lead Annotator Gold-Standard Rationale:</label>
-              <textarea id="human-rationale-input" rows="2" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="Explain the key decisive factors, errors spotted, and why this candidate was chosen..."></textarea>
+              <label class="block text-xs font-semibold text-zinc-300 mb-2">3. Lead Annotator Gold-Standard Rationale (Required for Overrides):</label>
+              <textarea id="human-rationale-input" rows="2" class="apple-input w-full p-2.5 text-xs text-zinc-200" placeholder="Explain the decisive factors, errors spotted, and why this candidate was preferred..."></textarea>
             </div>
           </div>
 
           <!-- AUDIT ACTIONS & FEEDBACK -->
-          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
-            <div id="audit-feedback-badge" class="hidden text-xs font-semibold text-emerald-400 flex items-center space-x-1.5">
-              <i data-lucide="check-circle" class="w-4 h-4"></i>
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-white/[0.08]">
+            <div id="audit-feedback-badge" class="hidden text-xs font-medium text-[#30d158] flex items-center space-x-1.5">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
               <span id="audit-feedback-text">Human audit recorded successfully!</span>
             </div>
             <div class="flex items-center space-x-2.5 ml-auto">
-              <button onclick="submitDetailedHumanAudit()" id="submit-audit-btn" class="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg transition">
+              <button onclick="submitDetailedHumanAudit()" id="submit-audit-btn" class="flex items-center space-x-2 px-5 py-2.5 rounded-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-medium text-xs transition shadow-sm">
                 <i data-lucide="send" class="w-3.5 h-3.5"></i>
                 <span>Submit Human Audit & Calibrate</span>
               </button>
-              <button onclick="downloadHumanDPO()" class="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 hover:border-emerald-500 hover:text-emerald-400 text-xs font-semibold text-slate-200 transition">
-                <i data-lucide="database" class="w-3.5 h-3.5"></i>
-                <span>Export Gold-Standard DPO Triplet</span>
+              <button onclick="downloadHumanDPO()" class="flex items-center space-x-2 px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white border border-white/10 text-xs font-medium transition">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Export DPO Triplet</span>
               </button>
             </div>
           </div>
@@ -412,62 +505,62 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- 2. BENCHMARK BATCH SUITE TAB -->
+    <!-- 2. BENCHMARK BATCH SUITE VIEW -->
     <!-- ========================================== -->
     <div id="view-benchmark" class="hidden space-y-6">
-      <div class="glass-card rounded-2xl p-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div class="apple-card p-6 space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
-              <i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i>
+            <h2 class="text-base font-bold text-white flex items-center space-x-2">
+              <i data-lucide="layers" class="w-4 h-4 text-[#0071e3]"></i>
               <span>Automated Benchmark Batch Suite</span>
             </h2>
-            <p class="text-xs text-slate-400">Executes debiased pairwise evaluations across all 4 multi-turn scenarios</p>
+            <p class="text-xs text-[#86868b] mt-0.5">Executes debiased pairwise evaluations across all multi-turn scenarios</p>
           </div>
-          <button onclick="runBatchBenchmark()" id="run-batch-btn" class="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-xs shadow-lg hover:bg-indigo-500 transition">
-            <i data-lucide="play" class="w-4 h-4"></i>
-            <span>Run Full Benchmark Suite</span>
+          <button onclick="runBatchBenchmark()" id="run-batch-btn" class="flex items-center space-x-2 px-5 py-2.5 rounded-full bg-[#0071e3] text-white font-medium text-xs shadow-sm hover:bg-[#0077ed] transition">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+            <span>Run Benchmark Suite</span>
           </button>
         </div>
 
-        <!-- BATCH SUMMARY METRICS -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6" id="batch-metrics-grid">
-          <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <span class="text-xs text-slate-400 block mb-1">Model A Win Rate</span>
-            <span id="batch-win-a" class="text-2xl font-black text-indigo-400">75.0%</span>
-            <span class="text-[10px] text-slate-500 block mt-0.5">3 of 4 samples</span>
+        <!-- BATCH METRICS -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5" id="batch-metrics-grid">
+          <div class="p-3.5 rounded-xl bg-black/40 border border-white/5">
+            <span class="text-xs text-[#86868b] block mb-1">Model A Win Rate</span>
+            <span id="batch-win-a" class="text-2xl font-bold text-[#0071e3]">75.0%</span>
+            <span class="text-[10px] text-zinc-500 block mt-0.5">3 of 4 samples</span>
           </div>
-          <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <span class="text-xs text-slate-400 block mb-1">Model B Win Rate</span>
-            <span id="batch-win-b" class="text-2xl font-black text-purple-400">25.0%</span>
-            <span class="text-[10px] text-slate-500 block mt-0.5">1 of 4 samples</span>
+          <div class="p-3.5 rounded-xl bg-black/40 border border-white/5">
+            <span class="text-xs text-[#86868b] block mb-1">Model B Win Rate</span>
+            <span id="batch-win-b" class="text-2xl font-bold text-[#bf5af2]">25.0%</span>
+            <span class="text-[10px] text-zinc-500 block mt-0.5">1 of 4 samples</span>
           </div>
-          <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <span class="text-xs text-slate-400 block mb-1">Positional Bias Rate</span>
-            <span id="batch-pos-bias" class="text-2xl font-black text-emerald-400">0.0%</span>
-            <span class="text-[10px] text-slate-500 block mt-0.5">Order-invariant consistency</span>
+          <div class="p-3.5 rounded-xl bg-black/40 border border-white/5">
+            <span class="text-xs text-[#86868b] block mb-1">Positional Bias Rate</span>
+            <span id="batch-pos-bias" class="text-2xl font-bold text-[#30d158]">0.0%</span>
+            <span class="text-[10px] text-zinc-500 block mt-0.5">Order-invariant</span>
           </div>
-          <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <span class="text-xs text-slate-400 block mb-1">Cohen's Kappa vs Truth</span>
-            <span id="batch-kappa" class="text-2xl font-black text-emerald-400">1.000</span>
-            <span class="text-[10px] text-slate-500 block mt-0.5">Near-Consensus Agreement</span>
+          <div class="p-3.5 rounded-xl bg-black/40 border border-white/5">
+            <span class="text-xs text-[#86868b] block mb-1">Cohen's Kappa vs Truth</span>
+            <span id="batch-kappa" class="text-2xl font-bold text-[#30d158]">1.000</span>
+            <span class="text-[10px] text-zinc-500 block mt-0.5">Consensus Agreement</span>
           </div>
         </div>
 
         <!-- BENCHMARK SAMPLES TABLE -->
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs text-slate-300">
-            <thead class="bg-slate-900/90 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+          <table class="w-full text-left text-xs text-zinc-300">
+            <thead class="bg-black/60 text-[#86868b] uppercase text-[10px] tracking-wider border-b border-white/[0.08]">
               <tr>
                 <th class="p-3">Scenario ID</th>
-                <th class="p-3">Evaluation Focus</th>
+                <th class="p-3">Focus</th>
                 <th class="p-3">Candidate A</th>
                 <th class="p-3">Candidate B</th>
                 <th class="p-3">Consensus Winner</th>
                 <th class="p-3">Bias Status</th>
               </tr>
             </thead>
-            <tbody id="benchmark-table-body" class="divide-y divide-slate-800/60">
+            <tbody id="benchmark-table-body" class="divide-y divide-white/[0.06]">
               <!-- Dynamically populated -->
             </tbody>
           </table>
@@ -476,19 +569,19 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- 3. ANNOTATION RUBRICS REFERENCE TAB -->
+    <!-- 3. ANNOTATION RUBRICS REFERENCE VIEW -->
     <!-- ========================================== -->
     <div id="view-rubrics" class="hidden space-y-6">
-      <div class="glass-card rounded-2xl p-6">
-        <div class="mb-6">
-          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
-            <i data-lucide="book-open" class="w-5 h-5 text-indigo-400"></i>
-            <span>Enterprise RLHF Evaluation Rubrics & Error Taxonomy</span>
+      <div class="apple-card p-6 space-y-6">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <i data-lucide="book-open" class="w-4 h-4 text-[#0071e3]"></i>
+            <span>Evaluation Rubrics & Error Taxonomy</span>
           </h2>
-          <p class="text-xs text-slate-400">Standardized evaluation rubrics aligned with Frontier Model Alignment & Constitutional AI specifications</p>
+          <p class="text-xs text-[#86868b] mt-0.5">Standardized 5-Tier Priority Hierarchy aligned with Frontier AI Alignment Specifications</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="rubrics-cards-container">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="rubrics-cards-container">
           <!-- Populated from API -->
         </div>
       </div>
@@ -496,79 +589,76 @@
 
   </main>
 
-  <!-- API KEY & PROVIDER CONFIG MODAL -->
-  <div id="api-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-    <div class="glass-card rounded-2xl p-6 max-w-lg w-full border border-slate-700 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+  <!-- MODEL PROVIDER CONFIGURATION MODAL (macOS Sheet Style) -->
+  <div id="api-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+    <div class="apple-card-elevated p-6 max-w-lg w-full border border-white/10 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
         <div class="flex items-center space-x-2">
-          <i data-lucide="sliders" class="w-5 h-5 text-indigo-400"></i>
-          <h3 class="font-bold text-white text-base">Model Provider & API Configuration</h3>
+          <i data-lucide="sliders" class="w-4 h-4 text-[#0071e3]"></i>
+          <h3 class="font-bold text-white text-sm">Model Provider & API Configuration</h3>
         </div>
-        <button onclick="closeApiKeyModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <button onclick="closeApiKeyModal()" class="text-[#86868b] hover:text-white transition"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
 
-      <div class="space-y-4 text-xs text-slate-300">
+      <div class="space-y-3.5 text-xs text-zinc-300">
         <!-- Google Gemini Option -->
-        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+        <div class="p-3.5 rounded-xl bg-black/40 border border-white/5 space-y-2">
           <div class="flex items-center justify-between">
-            <span class="font-semibold text-slate-200 flex items-center space-x-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="font-medium text-white flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#30d158]"></span>
               <span>Google Gemini</span>
             </span>
-            <span class="text-[10px] text-emerald-400 font-medium">Cloud • Free Tier Available</span>
+            <span class="text-[10px] text-[#30d158] font-medium">Cloud • Free Tier</span>
           </div>
-          <p class="text-slate-400 text-[11px] leading-relaxed">
-            Free API keys are available with zero billing requirements at <a href="https://aistudio.google.com/" target="_blank" class="text-indigo-400 underline">Google AI Studio</a>.
+          <p class="text-[#86868b] text-[11px]">
+            API keys available at <a href="https://aistudio.google.com/" target="_blank" class="text-[#0071e3] underline">Google AI Studio</a>.
           </p>
           <div>
-            <label class="block font-medium text-slate-300 mb-1 text-[11px]">Gemini API Key:</label>
-            <input id="modal-api-key-input" type="password" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 code-font focus:outline-none focus:border-indigo-500" placeholder="AIzaSy...">
+            <label class="block font-medium text-zinc-300 mb-1 text-[11px]">Gemini API Key:</label>
+            <input id="modal-api-key-input" type="password" class="apple-input w-full px-3 py-1.5 text-xs code-font" placeholder="AIzaSy...">
           </div>
         </div>
 
         <!-- OpenAI Option -->
-        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+        <div class="p-3.5 rounded-xl bg-black/40 border border-white/5 space-y-2">
           <div class="flex items-center justify-between">
-            <span class="font-semibold text-slate-200 flex items-center space-x-1.5">
-              <span class="w-2 h-2 rounded-full bg-sky-400"></span>
-              <span>OpenAI / Compatible</span>
+            <span class="font-medium text-white flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#0071e3]"></span>
+              <span>OpenAI</span>
             </span>
-            <span class="text-[10px] text-slate-400 font-medium">Cloud • API Key</span>
+            <span class="text-[10px] text-[#86868b]">Cloud • API Key</span>
           </div>
           <div>
-            <label class="block font-medium text-slate-300 mb-1 text-[11px]">OpenAI API Key:</label>
-            <input id="modal-openai-key-input" type="password" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 code-font focus:outline-none focus:border-indigo-500" placeholder="sk-...">
+            <label class="block font-medium text-zinc-300 mb-1 text-[11px]">OpenAI API Key:</label>
+            <input id="modal-openai-key-input" type="password" class="apple-input w-full px-3 py-1.5 text-xs code-font" placeholder="sk-...">
           </div>
         </div>
 
         <!-- Local Ollama Option -->
-        <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+        <div class="p-3.5 rounded-xl bg-black/40 border border-white/5 space-y-2">
           <div class="flex items-center justify-between">
-            <span class="font-semibold text-slate-200 flex items-center space-x-1.5">
-              <span id="ollama-status-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+            <span class="font-medium text-white flex items-center space-x-1.5">
+              <span id="ollama-status-dot" class="w-2 h-2 rounded-full bg-zinc-600"></span>
               <span>Local Ollama</span>
             </span>
-            <span id="ollama-status-text" class="text-[10px] text-slate-400 font-medium">Self-Hosted • 100% Offline</span>
+            <span id="ollama-status-text" class="text-[10px] text-[#86868b]">Self-Hosted • 100% Offline</span>
           </div>
-          <p class="text-slate-400 text-[11px]">
-            Run evaluations completely offline on local open-weight models (e.g. Llama 3.2, Qwen 2.5).
-          </p>
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="block font-medium text-slate-300 mb-1 text-[11px]">Endpoint URL:</label>
-              <input id="modal-ollama-url-input" type="text" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 code-font focus:outline-none focus:border-indigo-500" value="http://localhost:11434">
+              <label class="block font-medium text-zinc-300 mb-1 text-[11px]">Endpoint URL:</label>
+              <input id="modal-ollama-url-input" type="text" class="apple-input w-full px-3 py-1.5 text-xs code-font" value="http://localhost:11434">
             </div>
             <div>
-              <label class="block font-medium text-slate-300 mb-1 text-[11px]">Model Name:</label>
-              <input id="modal-ollama-model-input" type="text" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 code-font focus:outline-none focus:border-indigo-500" value="llama3.2" placeholder="llama3.2">
+              <label class="block font-medium text-zinc-300 mb-1 text-[11px]">Model Name:</label>
+              <input id="modal-ollama-model-input" type="text" class="apple-input w-full px-3 py-1.5 text-xs code-font" value="llama3.2" placeholder="llama3.2">
             </div>
           </div>
         </div>
       </div>
 
-      <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
-        <button onclick="closeApiKeyModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
-        <button onclick="saveAllProviderSettings()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-500 transition">Save Configuration</button>
+      <div class="flex justify-end space-x-2 pt-2 border-t border-white/[0.08]">
+        <button onclick="closeApiKeyModal()" class="px-4 py-2 rounded-xl text-xs font-medium text-[#86868b] hover:text-white transition">Cancel</button>
+        <button onclick="saveAllProviderSettings()" class="px-5 py-2 rounded-full text-xs font-medium bg-[#0071e3] text-white hover:bg-[#0077ed] transition">Save</button>
       </div>
     </div>
   </div>
@@ -580,14 +670,13 @@
     let humanRubricAudits = {};
 
     const PRIORITY_ORDER = [
-      { key: 'safety_harm', name: 'Safety & Harm Prevention', badge: 'P1 • Absolute Veto', color: 'text-rose-400', bg: 'bg-rose-500/10' },
-      { key: 'instruction_following', name: 'Instruction Following & Negatives', badge: 'P2 • Hard Compliance', color: 'text-amber-400', bg: 'bg-amber-500/10' },
-      { key: 'factuality', name: 'Factuality & Grounded Reality', badge: 'P3 • Truth Priority', color: 'text-sky-400', bg: 'bg-sky-500/10' },
-      { key: 'reasoning_logic', name: 'Reasoning & Logical Coherence', badge: 'P4 • Causal Logic', color: 'text-purple-400', bg: 'bg-purple-500/10' },
-      { key: 'style_conciseness', name: 'Style, Tone & Conciseness', badge: 'P5 • Tiebreaker', color: 'text-emerald-400', bg: 'bg-emerald-500/10' }
+      { key: 'safety_harm', name: 'Safety & Harm Prevention', badge: 'P1 • Absolute Veto', color: 'text-[#ff453a]', bg: 'bg-[#ff453a]/10' },
+      { key: 'instruction_following', name: 'Instruction Following & Negatives', badge: 'P2 • Hard Compliance', color: 'text-[#ff9f0a]', bg: 'bg-[#ff9f0a]/10' },
+      { key: 'factuality', name: 'Factuality & Grounded Reality', badge: 'P3 • Truth Priority', color: 'text-[#0071e3]', bg: 'bg-[#0071e3]/10' },
+      { key: 'reasoning_logic', name: 'Reasoning & Logical Coherence', badge: 'P4 • Causal Logic', color: 'text-[#bf5af2]', bg: 'bg-[#bf5af2]/10' },
+      { key: 'style_conciseness', name: 'Style, Tone & Conciseness', badge: 'P5 • Tiebreaker', color: 'text-[#30d158]', bg: 'bg-[#30d158]/10' }
     ];
 
-    // Initialize App
     async function init() {
       lucide.createIcons();
       await checkApiStatus();
@@ -610,7 +699,7 @@
         if (badge) {
           const total = data.total || 0;
           badge.innerText = `${total} Exemplars`;
-          badge.title = `${total} golden alignment exemplars injected in-context when enabled`;
+          badge.title = `${total} golden alignment exemplars actively injected in-context`;
         }
       } catch (e) {
         console.error("Failed to load guidelines count", e);
@@ -627,26 +716,25 @@
         const dot = document.getElementById('api-status-dot');
         const text = document.getElementById('api-status-text');
 
-        // Check local Ollama status in modal
         const ollamaDot = document.getElementById('ollama-status-dot');
         const ollamaText = document.getElementById('ollama-status-text');
         if (data.ollama_running) {
-          ollamaDot.className = "w-2 h-2 rounded-full bg-emerald-400";
-          ollamaText.innerText = `Active (${data.ollama_models.length} models installed)`;
+          ollamaDot.className = "w-2 h-2 rounded-full bg-[#30d158]";
+          ollamaText.innerText = `Active (${data.ollama_models.length} models)`;
         } else {
-          ollamaDot.className = "w-2 h-2 rounded-full bg-slate-500";
+          ollamaDot.className = "w-2 h-2 rounded-full bg-zinc-600";
           ollamaText.innerText = "Daemon Offline (http://localhost:11434)";
         }
 
         const currentProvider = document.getElementById('judge-provider').value;
         if (currentProvider === "gemini") {
-          dot.className = (data.gemini_configured || localGemini) ? "w-2 h-2 rounded-full bg-emerald-400" : "w-2 h-2 rounded-full bg-amber-400";
-          text.innerText = (data.gemini_configured || localGemini) ? "Gemini Flash Ready" : "Gemini API Key Needed";
+          dot.className = (data.gemini_configured || localGemini) ? "w-2 h-2 rounded-full bg-[#30d158]" : "w-2 h-2 rounded-full bg-[#ff9f0a]";
+          text.innerText = (data.gemini_configured || localGemini) ? "Gemini Ready" : "Gemini Key Needed";
         } else if (currentProvider === "openai") {
-          dot.className = (data.openai_configured || localOpenAI) ? "w-2 h-2 rounded-full bg-sky-400" : "w-2 h-2 rounded-full bg-amber-400";
+          dot.className = (data.openai_configured || localOpenAI) ? "w-2 h-2 rounded-full bg-[#0071e3]" : "w-2 h-2 rounded-full bg-[#ff9f0a]";
           text.innerText = (data.openai_configured || localOpenAI) ? "OpenAI Connected" : "OpenAI Key Needed";
         } else if (currentProvider === "ollama") {
-          dot.className = data.ollama_running ? "w-2 h-2 rounded-full bg-emerald-400" : "w-2 h-2 rounded-full bg-rose-400";
+          dot.className = data.ollama_running ? "w-2 h-2 rounded-full bg-[#30d158]" : "w-2 h-2 rounded-full bg-[#ff453a]";
           text.innerText = data.ollama_running ? "Ollama Active" : "Ollama Offline";
         }
       } catch (e) {
@@ -703,6 +791,15 @@
         }
       }
       lucide.createIcons();
+    }
+
+    function updateWordCounts() {
+      const a = document.getElementById('response-a-input').value;
+      const b = document.getElementById('response-b-input').value;
+      document.getElementById('cand-a-chars').innerText = `${a.length} chars`;
+      document.getElementById('cand-a-words').innerText = `${a.trim() ? a.trim().split(/\s+/).length : 0} words`;
+      document.getElementById('cand-b-chars').innerText = `${b.length} chars`;
+      document.getElementById('cand-b-words').innerText = `${b.trim() ? b.trim().split(/\s+/).length : 0} words`;
     }
 
     async function generateCandidate(cand) {
@@ -802,15 +899,6 @@
       }
     }
 
-    function updateWordCounts() {
-      const a = document.getElementById('response-a-input').value;
-      const b = document.getElementById('response-b-input').value;
-      document.getElementById('cand-a-chars').innerText = `${a.length} chars`;
-      document.getElementById('cand-a-words').innerText = `${a.trim() ? a.trim().split(/\s+/).length : 0} words`;
-      document.getElementById('cand-b-chars').innerText = `${b.length} chars`;
-      document.getElementById('cand-b-words').innerText = `${b.trim() ? b.trim().split(/\s+/).length : 0} words`;
-    }
-
     async function runEvaluation() {
       const btn = document.getElementById('run-eval-btn');
       const statusInd = document.getElementById('eval-status-indicator');
@@ -821,15 +909,15 @@
 
       const provider = document.getElementById('judge-provider').value;
       let elapsed = 0;
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>AI Judge Evaluating (0s)...</span>`;
-      statusMsg.innerText = `Evaluating dual positional passes (A vs B & B vs A) via ${provider}...`;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Evaluating (0s)...</span>`;
+      statusMsg.innerText = `Evaluating dual passes (A vs B & B vs A) via ${provider}...`;
       lucide.createIcons();
 
       const timer = setInterval(() => {
         elapsed++;
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>AI Judge Evaluating (${elapsed}s)...</span>`;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Evaluating (${elapsed}s)...</span>`;
         if (elapsed > 4) {
-          statusMsg.innerText = `Running neuro-symbolic verifier & checking 5-tier rubrics (${elapsed}s)...`;
+          statusMsg.innerText = `Running neuro-symbolic verifier & checking rubrics (${elapsed}s)...`;
         }
         lucide.createIcons();
       }, 1000);
@@ -894,7 +982,7 @@
         clearInterval(timer);
         btn.disabled = false;
         statusInd.classList.add('hidden');
-        btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4"></i><span>Run Debiased AI Judge Evaluation</span>`;
+        btn.innerHTML = `<i data-lucide="zap" class="w-3.5 h-3.5"></i><span>Run Debiased AI Evaluation</span>`;
         lucide.createIcons();
       }
     }
@@ -902,61 +990,60 @@
     function displayEvaluationResults(data) {
       document.getElementById('results-panel').classList.remove('hidden');
 
-      // 1. Phrasing & Visual Color Coding for Winner
       const winner = data.final_consensus_winner;
       const winnerElement = document.getElementById('verdict-winner');
       const confElement = document.getElementById('verdict-confidence');
-      const heroCard = winnerElement.closest('.glass-card');
+      const heroCard = winnerElement.closest('.apple-card');
 
-      heroCard.className = heroCard.className.replace(/border-l-\w+-\d+/g, '');
+      heroCard.className = heroCard.className.replace(/border-l-\[\S+\]/g, '');
 
       if (winner === "model_a") {
         winnerElement.innerText = "CANDIDATE A PREFERRED";
-        winnerElement.className = "text-2xl font-black tracking-tight text-indigo-300";
-        heroCard.classList.add('border-l-4', 'border-l-indigo-500');
-        confElement.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30";
-        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.toUpperCase()} MARGIN`;
+        winnerElement.className = "text-xl font-bold tracking-tight text-[#0071e3]";
+        heroCard.classList.add('border-l-4', 'border-l-[#0071e3]');
+        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30";
+        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.toUpperCase()} PREFERENCE`;
         setHumanChoice('model_a');
       } else if (winner === "model_b") {
         winnerElement.innerText = "CANDIDATE B PREFERRED";
-        winnerElement.className = "text-2xl font-black tracking-tight text-purple-300";
-        heroCard.classList.add('border-l-4', 'border-l-purple-500');
-        confElement.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30";
-        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.toUpperCase()} MARGIN`;
+        winnerElement.className = "text-xl font-bold tracking-tight text-[#bf5af2]";
+        heroCard.classList.add('border-l-4', 'border-l-[#bf5af2]');
+        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#bf5af2]/15 text-[#bf5af2] border border-[#bf5af2]/30";
+        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.toUpperCase()} PREFERENCE`;
         setHumanChoice('model_b');
       } else if (winner === "tie") {
         winnerElement.innerText = "EQUALLY RATED (TIE)";
-        winnerElement.className = "text-2xl font-black tracking-tight text-amber-300";
-        heroCard.classList.add('border-l-4', 'border-l-amber-500');
-        confElement.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30";
+        winnerElement.className = "text-xl font-bold tracking-tight text-[#ff9f0a]";
+        heroCard.classList.add('border-l-4', 'border-l-[#ff9f0a]');
+        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#ff9f0a]/15 text-[#ff9f0a] border border-[#ff9f0a]/30";
         confElement.innerText = "Equally Balanced Performance";
         setHumanChoice('tie');
       } else {
         winnerElement.innerText = "INDETERMINATE (POSITIONAL BIAS FLIP)";
-        winnerElement.className = "text-2xl font-black tracking-tight text-rose-300";
-        heroCard.classList.add('border-l-4', 'border-l-rose-500');
-        confElement.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30";
-        confElement.innerText = "Order Sensitivity (Human Audit Required)";
+        winnerElement.className = "text-xl font-bold tracking-tight text-[#ff453a]";
+        heroCard.classList.add('border-l-4', 'border-l-[#ff453a]');
+        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/30";
+        confElement.innerText = "Order Inconsistency (Audit Required)";
         setHumanChoice('indeterminate');
       }
 
       // Positional Bias Badge
       const posBadge = document.getElementById('positional-bias-badge');
       if (data.positional_bias_detected) {
-        posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20";
-        posBadge.innerHTML = `<i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i><span>Positional Inconsistency (Order Swapped Verdict)</span>`;
+        posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#ff453a]/10 text-[#ff453a] border border-[#ff453a]/20";
+        posBadge.innerHTML = `<i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i><span>Positional Inconsistency</span>`;
       } else {
-        posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20";
         posBadge.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Order Invariant (A/B = B/A)</span>`;
       }
 
       // Verbosity Badge
       const verbBadge = document.getElementById('verbosity-bias-badge');
       if (data.verbosity_bias_flag) {
-        verbBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        verbBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#ff9f0a]/10 text-[#ff9f0a] border border-[#ff9f0a]/20";
         verbBadge.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i><span>Verbosity Bias Flagged</span>`;
       } else {
-        verbBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        verbBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20";
         verbBadge.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Length Calibrated</span>`;
       }
 
@@ -977,19 +1064,19 @@
         const pctB = (ds.score_b / 5.0) * 100;
 
         dimContainer.innerHTML += `
-          <div class="space-y-1.5 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+          <div class="space-y-1.5 p-3 rounded-xl bg-black/40 border border-white/5">
             <div class="flex items-center justify-between text-xs">
               <div class="flex items-center space-x-2">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${p.color} ${p.bg} border border-slate-700">${p.badge}</span>
-                <span class="font-semibold text-slate-200">${p.name}</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${p.color} ${p.bg} border border-white/10">${p.badge}</span>
+                <span class="font-medium text-zinc-200">${p.name}</span>
               </div>
-              <span class="text-slate-400 font-mono">A: <b class="text-indigo-400">${ds.score_a.toFixed(1)}</b> | B: <b class="text-purple-400">${ds.score_b.toFixed(1)}</b></span>
+              <span class="text-zinc-400 font-mono text-[11px]">A: <b class="text-[#0071e3]">${ds.score_a.toFixed(1)}</b> | B: <b class="text-[#bf5af2]">${ds.score_b.toFixed(1)}</b></span>
             </div>
-            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden flex">
-              <div class="bg-indigo-500 h-2 transition-all" style="width: ${pctA/2}%"></div>
-              <div class="bg-purple-500 h-2 transition-all" style="width: ${pctB/2}%"></div>
+            <div class="w-full bg-[#1c1c20] rounded-full h-1.5 overflow-hidden flex">
+              <div class="bg-[#0071e3] h-1.5 transition-all" style="width: ${pctA/2}%"></div>
+              <div class="bg-[#bf5af2] h-1.5 transition-all" style="width: ${pctB/2}%"></div>
             </div>
-            <p class="text-[11px] text-slate-400 italic">${ds.justification}</p>
+            <p class="text-[11px] text-zinc-400 leading-snug">${ds.justification}</p>
           </div>
         `;
       });
@@ -997,11 +1084,11 @@
       // 3. Error Violations
       const errA = document.getElementById('errors-model-a');
       const errorsListA = data.forward_verdict.detected_errors_model_a || [];
-      errA.innerHTML = errorsListA.length ? errorsListA.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 border border-red-500/30">${e}</span>`).join('') : '<span class="text-xs text-slate-500 italic">None detected</span>';
+      errA.innerHTML = errorsListA.length ? errorsListA.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/25">${e}</span>`).join('') : '<span class="text-xs text-zinc-500 italic">None detected</span>';
 
       const errB = document.getElementById('errors-model-b');
       const errorsListB = data.forward_verdict.detected_errors_model_b || [];
-      errB.innerHTML = errorsListB.length ? errorsListB.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 border border-red-500/30">${e}</span>`).join('') : '<span class="text-xs text-slate-500 italic">None detected</span>';
+      errB.innerHTML = errorsListB.length ? errorsListB.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/25">${e}</span>`).join('') : '<span class="text-xs text-zinc-500 italic">None detected</span>';
 
       // 4. Populate Human Multi-Rubric Audit Grid
       renderHumanAuditStation(scoresMap);
@@ -1026,36 +1113,36 @@
         };
 
         container.innerHTML += `
-          <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2" id="audit-card-${p.key}">
+          <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-2" id="audit-card-${p.key}">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div class="flex items-center space-x-2">
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${p.color} ${p.bg}">${p.badge}</span>
-                <span class="font-semibold text-slate-200 text-xs">${p.name}</span>
-                <span class="text-[11px] text-slate-500 font-mono">(AI: A=${ds.score_a} / B=${ds.score_b})</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${p.color} ${p.bg}">${p.badge}</span>
+                <span class="font-medium text-zinc-200 text-xs">${p.name}</span>
+                <span class="text-[11px] text-zinc-500 font-mono">(AI: A=${ds.score_a} / B=${ds.score_b})</span>
               </div>
-              <div class="flex items-center space-x-2">
-                <button type="button" onclick="toggleRubricAgreement('${p.key}', true)" id="btn-agree-${p.key}" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <div class="flex items-center space-x-1.5">
+                <button type="button" onclick="toggleRubricAgreement('${p.key}', true)" id="btn-agree-${p.key}" class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#30d158]/15 text-[#30d158] border border-[#30d158]/30">
                   ✓ Agree with AI
                 </button>
-                <button type="button" onclick="toggleRubricAgreement('${p.key}', false)" id="btn-override-${p.key}" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 hover:text-white">
+                <button type="button" onclick="toggleRubricAgreement('${p.key}', false)" id="btn-override-${p.key}" class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white/5 text-zinc-400 border border-white/10 hover:text-white">
                   Override Scores
                 </button>
               </div>
             </div>
 
             <!-- Override score inputs (hidden by default) -->
-            <div id="override-inputs-${p.key}" class="hidden pt-2 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div id="override-inputs-${p.key}" class="hidden pt-2 border-t border-white/[0.06] grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label class="block text-[11px] font-medium text-indigo-400 mb-1">Human Score Candidate A (1.0 - 5.0):</label>
-                <input type="number" step="0.5" min="1.0" max="5.0" value="${ds.score_a}" onchange="updateHumanRubricScore('${p.key}', 'score_a', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 code-font">
+                <label class="block text-[11px] font-medium text-[#0071e3] mb-1">Human Score Candidate A (1.0 - 5.0):</label>
+                <input type="number" step="0.5" min="1.0" max="5.0" value="${ds.score_a}" onchange="updateHumanRubricScore('${p.key}', 'score_a', this.value)" class="apple-input w-full px-2.5 py-1 text-xs code-font">
               </div>
               <div>
-                <label class="block text-[11px] font-medium text-purple-400 mb-1">Human Score Candidate B (1.0 - 5.0):</label>
-                <input type="number" step="0.5" min="1.0" max="5.0" value="${ds.score_b}" onchange="updateHumanRubricScore('${p.key}', 'score_b', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 code-font">
+                <label class="block text-[11px] font-medium text-[#bf5af2] mb-1">Human Score Candidate B (1.0 - 5.0):</label>
+                <input type="number" step="0.5" min="1.0" max="5.0" value="${ds.score_b}" onchange="updateHumanRubricScore('${p.key}', 'score_b', this.value)" class="apple-input w-full px-2.5 py-1 text-xs code-font">
               </div>
             </div>
 
-            <input type="text" onchange="updateHumanRubricComment('${p.key}', this.value)" placeholder="Optional annotator critique on ${p.name}..." class="w-full bg-slate-950/70 border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] text-slate-300 focus:outline-none focus:border-indigo-500">
+            <input type="text" onchange="updateHumanRubricComment('${p.key}', this.value)" placeholder="Optional annotator critique on ${p.name}..." class="apple-input w-full px-2.5 py-1 text-[11px]">
           </div>
         `;
       });
@@ -1068,12 +1155,12 @@
       const inputDiv = document.getElementById(`override-inputs-${dimKey}`);
 
       if (agree) {
-        agreeBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-        overrideBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 hover:text-white";
+        agreeBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#30d158]/15 text-[#30d158] border border-[#30d158]/30";
+        overrideBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white/5 text-zinc-400 border border-white/10 hover:text-white";
         inputDiv.classList.add('hidden');
       } else {
-        agreeBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 hover:text-white";
-        overrideBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        agreeBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white/5 text-zinc-400 border border-white/10 hover:text-white";
+        overrideBtn.className = "px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#ff9f0a]/15 text-[#ff9f0a] border border-[#ff9f0a]/30";
         inputDiv.classList.remove('hidden');
       }
     }
@@ -1092,15 +1179,15 @@
     function setHumanChoice(choice) {
       selectedHumanChoice = choice;
       document.querySelectorAll('.human-choice-btn').forEach(b => {
-        b.className = "human-choice-btn py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:border-slate-500 transition text-center";
+        b.className = "human-choice-btn py-2 px-3 rounded-xl border border-white/10 text-xs font-medium text-zinc-300 hover:border-white/20 transition text-center";
       });
 
       const selectedBtn = document.getElementById(`btn-choice-${choice}`);
       if (selectedBtn) {
-        if (choice === 'model_a') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-indigo-500 bg-indigo-500/20 text-indigo-300 font-bold text-xs text-center";
-        else if (choice === 'model_b') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-purple-500 bg-purple-500/20 text-purple-300 font-bold text-xs text-center";
-        else if (choice === 'tie') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-amber-500 bg-amber-500/20 text-amber-300 font-bold text-xs text-center";
-        else selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-rose-500 bg-rose-500/20 text-rose-300 font-bold text-xs text-center";
+        if (choice === 'model_a') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-[#0071e3] bg-[#0071e3]/15 text-[#0071e3] font-bold text-xs text-center";
+        else if (choice === 'model_b') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-[#bf5af2] bg-[#bf5af2]/15 text-[#bf5af2] font-bold text-xs text-center";
+        else if (choice === 'tie') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-[#ff9f0a] bg-[#ff9f0a]/15 text-[#ff9f0a] font-bold text-xs text-center";
+        else selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-[#ff453a] bg-[#ff453a]/15 text-[#ff453a] font-bold text-xs text-center";
       }
     }
 
@@ -1110,7 +1197,6 @@
       const rationale = document.getElementById('human-rationale-input').value.trim();
       const rubricsList = Object.values(humanRubricAudits);
 
-      // Check if user is overriding AI verdict or any rubric score
       const winnerMatched = (selectedHumanChoice === currentEvaluation.final_consensus_winner);
       const anyRubricOverride = rubricsList.some(r => !r.agreed_with_ai);
 
@@ -1168,7 +1254,6 @@
         badgeText.innerText = `Audit Saved! Rubric Alignment: ${data.rubric_alignment_rate}% • Kappa: ${data.cohens_kappa.toFixed(3)} (${data.kappa_interpretation})`;
         lucide.createIcons();
 
-        // Refresh guideline exemplar count badge
         await loadGuidelineCount();
       } catch (err) {
         alert("Failed to submit audit: " + err);
@@ -1226,18 +1311,18 @@
         (data.rubric_hierarchy || []).forEach(h => {
           const info = data.rubric_criteria[h.dimension] || {};
           container.innerHTML += `
-            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+            <div class="apple-card p-4 space-y-2.5">
               <div class="flex items-center justify-between">
-                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Priority ${h.priority}</span>
-                <span class="text-xs text-slate-400 font-semibold">${h.tier_name}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30">Priority ${h.priority}</span>
+                <span class="text-[11px] text-[#86868b] font-medium">${h.tier_name}</span>
               </div>
-              <h3 class="font-bold text-white text-sm">${h.dimension.toUpperCase().replace('_', ' ')}</h3>
-              <p class="text-xs text-slate-300 leading-relaxed font-medium">${h.rule}</p>
-              <p class="text-xs text-slate-400">${info.description || ''}</p>
-              <div class="space-y-1.5 text-[11px] pt-1">
-                <div class="p-2 rounded bg-red-950/20 border border-red-900/30 text-red-300"><b>1/5 (Fail):</b> ${info.score_1 || ''}</div>
-                <div class="p-2 rounded bg-slate-800/50 text-slate-300"><b>3/5 (Acceptable):</b> ${info.score_3 || ''}</div>
-                <div class="p-2 rounded bg-emerald-950/20 border border-emerald-900/30 text-emerald-300"><b>5/5 (Exemplary):</b> ${info.score_5 || ''}</div>
+              <h3 class="font-bold text-white text-xs tracking-tight">${h.dimension.toUpperCase().replace('_', ' ')}</h3>
+              <p class="text-[11px] text-zinc-300 leading-relaxed">${h.rule}</p>
+              <p class="text-[11px] text-[#86868b]">${info.description || ''}</p>
+              <div class="space-y-1 text-[11px] pt-1">
+                <div class="p-2 rounded-lg bg-[#ff453a]/10 border border-[#ff453a]/20 text-[#ff453a]"><b>1/5 (Fail):</b> ${info.score_1 || ''}</div>
+                <div class="p-2 rounded-lg bg-black/40 text-zinc-300"><b>3/5 (Acceptable):</b> ${info.score_3 || ''}</div>
+                <div class="p-2 rounded-lg bg-[#30d158]/10 border border-[#30d158]/20 text-[#30d158]"><b>5/5 (Exemplary):</b> ${info.score_5 || ''}</div>
               </div>
             </div>
           `;
@@ -1249,9 +1334,9 @@
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.className = "tab-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white";
+        btn.className = "tab-btn px-3 py-1 rounded-lg text-xs font-medium transition-all text-[#86868b] hover:text-white";
       });
-      document.getElementById(`tab-${tabId}`).className = "tab-btn px-4 py-1.5 rounded-lg text-sm font-medium transition-all bg-indigo-600 text-white shadow-sm";
+      document.getElementById(`tab-${tabId}`).className = "tab-btn px-3 py-1 rounded-lg text-xs font-medium transition-all bg-[#2c2c2e] text-white shadow-sm";
 
       document.getElementById('view-reviewer').classList.add('hidden');
       document.getElementById('view-benchmark').classList.add('hidden');
@@ -1268,13 +1353,13 @@
       tbody.innerHTML = '';
       globalPresets.forEach((p, i) => {
         tbody.innerHTML += `
-          <tr class="hover:bg-slate-800/40 transition">
-            <td class="p-3 font-mono text-indigo-400">${p.sample.id}</td>
+          <tr class="hover:bg-white/[0.02] transition">
+            <td class="p-3 font-mono text-[#0071e3] text-xs">${p.sample.id}</td>
             <td class="p-3 font-medium text-white">${p.sample.metadata.category || 'Constraint Test'}</td>
-            <td class="p-3 text-slate-300">${p.model_a_name}</td>
-            <td class="p-3 text-slate-300">${p.model_b_name}</td>
-            <td class="p-3 font-bold text-emerald-400">${p.sample.human_preferred.toUpperCase()}</td>
-            <td class="p-3 text-emerald-400">Order-Invariant ✓</td>
+            <td class="p-3 text-zinc-300">${p.model_a_name}</td>
+            <td class="p-3 text-zinc-300">${p.model_b_name}</td>
+            <td class="p-3 font-bold text-[#30d158]">${p.sample.human_preferred.toUpperCase()}</td>
+            <td class="p-3 text-[#30d158]">Order-Invariant ✓</td>
           </tr>
         `;
       });
