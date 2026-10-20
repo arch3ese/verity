@@ -4,14 +4,18 @@ error taxonomy tagging, and structured verdict extraction using LangChain.
 """
 
 import json
+import logging
 import re
-from typing import Any, Optional
+import unicodedata
+from typing import Any, List, Optional, Tuple
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import ValidationError
 
+logger = logging.getLogger("aligncraft.judges.pairwise")
+
 from aligncraft.rubrics.definitions import format_rubric_prompt
-from aligncraft.judges.rule_verifier import RuleVerifier
+from aligncraft.judges.rule_verifier import LIGATURE_FOLD_MAP, RuleVerifier
 from aligncraft.alignment.guidelines import GuidelineBank
 from aligncraft.schemas.models import (
     DimensionScore,
@@ -123,6 +127,87 @@ def _sanitize_candidate_text(text: str) -> str:
         sanitized,
     )
     return sanitized
+
+
+def _audit_and_sanitize_attribution_hallucinations(
+    text: str,
+    rep_a: Optional[Any] = None,
+    rep_b: Optional[Any] = None,
+) -> Tuple[str, List[str]]:
+    """
+    Audits an LLM judge's reasoning text for character-level attribution hallucinations.
+    If the LLM claims a character 'C' is present in word 'W' (e.g. "'e' in 'lungs'"),
+    verifies via exact string decomposition whether C actually exists in W.
+    If C does not exist in W, detects the hallucination and corrects the attribution
+    with the deterministic verified violation from telemetry.
+    """
+    if not text:
+        return text, []
+
+    corrected_text = text
+    hallucination_notes = []
+
+    pattern1 = re.compile(
+        r"(?:letter|character)?\s*['\"]?([a-zA-Z])['\"]?\s+(?:in|of)(?:\s+(?:the\s+)?word)?\s+['\"]([a-zA-Z0-9_\-]+)['\"]",
+        re.IGNORECASE,
+    )
+    pattern2 = re.compile(
+        r"(?:word\s+)?['\"]([a-zA-Z0-9_\-]+)['\"]\s+(?:contains?|has|with)\s+(?:an?|the|a\s+single)?\s*['\"]?([a-zA-Z])['\"]?",
+        re.IGNORECASE,
+    )
+
+    claims = []
+    for match in pattern1.finditer(text):
+        char, word = match.group(1), match.group(2)
+        claims.append((char, word, match.group(0)))
+
+    for match in pattern2.finditer(text):
+        word, char = match.group(1), match.group(2)
+        claims.append((char, word, match.group(0)))
+
+    for char, word, full_match in claims:
+        if len(word) < 2:
+            continue
+        norm_char = unicodedata.normalize("NFKD", char).lower()
+        norm_word = unicodedata.normalize("NFKD", word).lower()
+        for lig, repl in LIGATURE_FOLD_MAP.items():
+            norm_word = norm_word.replace(lig, repl)
+
+        if norm_char not in norm_word:
+            logger.warning(
+                f"Neuro-Symbolic Guard: LLM Judge hallucinated character attribution! "
+                f"Claimed '{char}' in '{word}', but '{word}' contains 0 instances of '{char}'."
+            )
+            note = f"Hallucinated Attribution Caught: LLM claimed '{char}' was in '{word}', but '{word}' contains no '{char}'."
+            hallucination_notes.append(note)
+
+            # Determine actual violating words from verified telemetry
+            target_reps = []
+            lower_sentence = text.lower()
+            if "candidate a" in lower_sentence or "model a" in lower_sentence:
+                if rep_a and rep_a.character_violations:
+                    target_reps = rep_a.character_violations
+            elif "candidate b" in lower_sentence or "model b" in lower_sentence:
+                if rep_b and rep_b.character_violations:
+                    target_reps = rep_b.character_violations
+
+            if not target_reps:
+                if rep_a and rep_a.character_violations:
+                    target_reps.extend(rep_a.character_violations)
+                if rep_b and rep_b.character_violations:
+                    target_reps.extend(rep_b.character_violations)
+
+            actual_words = []
+            for cv in target_reps:
+                if f"'{norm_char}'" in cv.lower():
+                    if "in word(s):" in cv:
+                        actual_words.append(cv.split("in word(s):")[-1].strip())
+
+            actual_str = "; ".join(actual_words) if actual_words else "None (text complies)"
+            replacement = f"'{char}' in {actual_str} [Attribution Corrected: '{word}' contains no '{char}']"
+            corrected_text = corrected_text.replace(full_match, replacement)
+
+    return corrected_text, hallucination_notes
 
 
 class PairwiseJudge:
@@ -585,6 +670,25 @@ Only return JSON. No introductory pleasantries."""
                     old_score_b = ds.score_b
                     ds.score_b = 2.5
                     ds.justification = f"Ground-Truth Capped (was {old_score_b}): Candidate violated verified constraints ({', '.join(rep_b.character_violations)})."
+
+        # 4b. Neuro-Symbolic Attribution Fact-Checking (Anti-Hallucination Guard)
+        # Verify any character attribution claims made by the LLM in its justifications
+        for ds in scores:
+            ds.justification, ds_notes = _audit_and_sanitize_attribution_hallucinations(
+                ds.justification, rep_a=rep_a, rep_b=rep_b
+            )
+            if ds_notes:
+                inconsistency_detected = True
+                inconsistency_notes.extend(ds_notes)
+
+        overall_reasoning_str = " ".join(reasons)
+        overall_reasoning_str, reasoning_notes = _audit_and_sanitize_attribution_hallucinations(
+            overall_reasoning_str, rep_a=rep_a, rep_b=rep_b
+        )
+        if reasoning_notes:
+            inconsistency_detected = True
+            inconsistency_notes.extend(reasoning_notes)
+            reasons = [overall_reasoning_str]
 
         if inconsistency_detected:
             reasons.append(f"[Telemetry Inconsistency Warning: {'; '.join(inconsistency_notes)} Scores adjusted to compliance caps.]")
