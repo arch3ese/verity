@@ -202,32 +202,36 @@ class RuleVerifier:
         rep_b = cls.audit_candidate(response_b, constraints, prompt)
 
         lines = ["### DETERMINISTIC PROGRAMMATIC AUDIT (GROUND TRUTH VERIFICATION)"]
-        lines.append("The following programmatic checks have been verified deterministically using exact string analysis:")
+        lines.append("The following programmatic telemetry has been verified deterministically using exact string analysis:")
 
         # Model A summary
-        lines.append("\n**Candidate A Verification Findings**:")
+        total_a = len(rep_a.constraint_audits)
+        passed_a = sum(1 for item in rep_a.constraint_audits if item.passed)
+        lines.append(f"\n**Candidate A Telemetry ({passed_a}/{total_a} constraints passed)**:")
         if rep_a.is_gibberish_or_noise:
-            lines.append(f"- [CRITICAL FAILURE] Semantic Void / Pure Noise: {rep_a.gibberish_reason}")
-            lines.append("  -> MANDATORY PENALTY: Instruction Following MUST be capped at 1.0! A non-communicative string cannot win.")
-        if rep_a.hard_negative_violation:
-            lines.append(f"- [NEGATIVE CONSTRAINT FAILURE]: {', '.join(rep_a.character_violations)}")
-            lines.append("  -> MANDATORY PENALTY: Instruction Following cannot exceed 2.0 due to explicit negative constraint breach.")
+            lines.append(f"- [CRITICAL FAILURE] Semantic Void / Pure Noise: {rep_a.gibberish_reason} (Cannot win over communicative text)")
+        if rep_a.character_violations:
+            lines.append(f"- Negative Character Findings: {', '.join(rep_a.character_violations)}")
         for item in rep_a.constraint_audits:
             lines.append(f"- Constraint '{item.constraint}': {'[PASSED]' if item.passed else '[FAILED]'} ({item.details})")
 
         # Model B summary
-        lines.append("\n**Candidate B Verification Findings**:")
+        total_b = len(rep_b.constraint_audits)
+        passed_b = sum(1 for item in rep_b.constraint_audits if item.passed)
+        lines.append(f"\n**Candidate B Telemetry ({passed_b}/{total_b} constraints passed)**:")
         if rep_b.is_gibberish_or_noise:
-            lines.append(f"- [CRITICAL FAILURE] Semantic Void / Pure Noise: {rep_b.gibberish_reason}")
-            lines.append("  -> MANDATORY PENALTY: Instruction Following MUST be capped at 1.0! A non-communicative string cannot win.")
-        if rep_b.hard_negative_violation:
-            lines.append(f"- [NEGATIVE CONSTRAINT FAILURE]: {', '.join(rep_b.character_violations)}")
-            lines.append("  -> MANDATORY PENALTY: Instruction Following cannot exceed 2.0 due to explicit negative constraint breach.")
+            lines.append(f"- [CRITICAL FAILURE] Semantic Void / Pure Noise: {rep_b.gibberish_reason} (Cannot win over communicative text)")
+        if rep_b.character_violations:
+            lines.append(f"- Negative Character Findings: {', '.join(rep_b.character_violations)}")
         for item in rep_b.constraint_audits:
             lines.append(f"- Constraint '{item.constraint}': {'[PASSED]' if item.passed else '[FAILED]'} ({item.details})")
 
-        lines.append("\n**EVALUATOR INSTRUCTION ON PROGRAMMATIC AUDIT**:")
-        lines.append("You MUST integrate these deterministic findings into your score. Do not contradict verified character counts or gibberish detections.")
+        lines.append("\n**PROPORTIONAL SCORING GUIDELINES**:")
+        lines.append("- Score 1.0 (Critical Failure): Non-communicative gibberish, refusal, or zero constraints followed.")
+        lines.append("- Score 2.0 - 2.5 (Partial / Mixed): Met secondary formatting (e.g. sentence count) but breached a negative constraint.")
+        lines.append("- Score 3.0 - 3.5 (Acceptable): Followed core intent and most constraints with minor lapses.")
+        lines.append("- Score 4.0 - 5.0 (High / Flawless): Followed all positive instructions and all negative constraints.")
+        lines.append("Base your scores strictly on these verified facts. Do not contradict verified character occurrences.")
 
         audit_prompt = "\n".join(lines)
         return PairwiseVerificationReport(

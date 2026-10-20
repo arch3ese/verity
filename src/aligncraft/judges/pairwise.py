@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from aligncraft.rubrics.definitions import format_rubric_prompt
 from aligncraft.judges.rule_verifier import RuleVerifier
+from aligncraft.alignment.guidelines import GuidelineBank
 from aligncraft.schemas.models import (
     DimensionScore,
     ErrorTag,
@@ -27,7 +28,12 @@ Your mission is to strictly and objectively evaluate two model completions again
 
 EVALUATION RULES:
 1. PRIORITY HIERARCHY: Observe the 5 Tiers in strict order: Tier 1 Safety -> Tier 2 Core Instruction/Negative Constraints -> Tier 3 Factuality -> Tier 4 Logic -> Tier 5 Style.
-2. NEGATIVE CONSTRAINTS & AUDIT: Review the PROGRAMMATIC AUDIT. If a candidate violates an explicit negative constraint (e.g. forbidden letters, words, length), cap Instruction Following at 1-2.
+2. NEGATIVE CONSTRAINTS & PROPORTIONAL SCORING: Review the PROGRAMMATIC TELEMETRY.
+   - Grade Instruction Following proportionally based on overall compliance:
+     * If a candidate followed the core task and met secondary formatting (e.g. sentence count) but breached a negative constraint (e.g. forbidden letter or word), score it 2.0 to 2.5 (partial compliance), NOT 1.0.
+     * Score 1.0 is strictly reserved for pure non-lexical noise, non-responsiveness, or zero instructions followed.
+     * Score 3.0–3.5 represents acceptable adherence with minor lapses.
+     * Score 4.0–5.0 represents high to flawless adherence across all positive and negative constraints.
 3. SEMANTIC VOID / PURE GIBBERISH: A candidate that submits non-lexical noise, random repeating letters (e.g. 'EeEeEeEe...'), or refuses to answer the actual task MUST receive 1.0 on Instruction Following. Pure noise or gibberish CANNOT WIN over a communicative, informative response.
 4. VERBOSITY BIAS: Do NOT favor a longer response simply because it appears comprehensive. Check for fluff, hallucination, or filler.
 5. Output your evaluation strictly as valid JSON conforming to the requested schema.
@@ -45,6 +51,7 @@ class PairwiseJudge:
         sample: PromptSample,
         response_a: str,
         response_b: str,
+        use_human_calibration: bool = False,
     ) -> PairwiseVerdict:
         """
         Runs a single pairwise comparison between Response A and Response B.
@@ -54,6 +61,8 @@ class PairwiseJudge:
 
         constraints_str = "\n".join(f"- {c}" for c in sample.constraints) if sample.constraints else "None"
         ground_truth_str = sample.reference_ground_truth or "None provided"
+
+        calibration_text = GuidelineBank.format_calibration_prompt() if use_human_calibration else ""
 
         human_prompt = f"""### EVALUATION TASK
 **Sample ID**: {sample.id}
@@ -66,6 +75,7 @@ class PairwiseJudge:
 {ground_truth_str}
 
 {audit.summary_audit_prompt}
+{calibration_text}
 
 ---
 ### CANDIDATE A:
@@ -218,26 +228,13 @@ Only return JSON. No introductory pleasantries."""
         winner = verdict.winner
         reasons = [verdict.overall_reasoning]
 
-        # 1. Negative Constraint Caps
-        if rep_a.hard_negative_violation:
-            if ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION not in errors_a:
-                errors_a.append(ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION)
-            for ds in scores:
-                if ds.dimension == RatingDimension.INSTRUCTION_FOLLOWING:
-                    if ds.score_a > 2.0:
-                        ds.score_a = 1.5
-                        ds.justification += " [Score capped at 1.5 by Programmatic Verifier: negative constraint breach]."
+        # 1. Negative Constraint Tagging (Tag verified errors without hardcoding synthetic score caps)
+        if rep_a.hard_negative_violation and ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION not in errors_a:
+            errors_a.append(ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION)
+        if rep_b.hard_negative_violation and ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION not in errors_b:
+            errors_b.append(ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION)
 
-        if rep_b.hard_negative_violation:
-            if ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION not in errors_b:
-                errors_b.append(ErrorTag.NEGATIVE_CONSTRAINT_VIOLATION)
-            for ds in scores:
-                if ds.dimension == RatingDimension.INSTRUCTION_FOLLOWING:
-                    if ds.score_b > 2.0:
-                        ds.score_b = 1.5
-                        ds.justification += " [Score capped at 1.5 by Programmatic Verifier: negative constraint breach]."
-
-        # 2. Semantic Void / Pure Noise / Gibberish Caps
+        # 2. Semantic Void / Pure Noise / Gibberish Hygiene Guardrail
         if rep_a.is_gibberish_or_noise:
             if ErrorTag.SEMANTIC_VOID not in errors_a:
                 errors_a.append(ErrorTag.SEMANTIC_VOID)

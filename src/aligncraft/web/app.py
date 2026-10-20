@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
+from aligncraft.alignment.guidelines import GuidelineBank
 from aligncraft.exporters.dpo_exporter import DPOExporter
 from aligncraft.judges.debiaser import DebiasingJudge
 from aligncraft.judges.pairwise import PairwiseJudge
@@ -294,6 +295,15 @@ def content_aware_mock_handler(prompt_text: str) -> str:
 
 
 # --- Request & Response Models ---
+class CandidateGenerationRequest(BaseModel):
+    prompt: str
+    constraints: List[str] = []
+    provider: str = "gemini"
+    model_name: str = "gemini-3.5-flash-lite"
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+
+
 class EvaluationRequest(BaseModel):
     prompt: str
     constraints: List[str] = []
@@ -306,6 +316,7 @@ class EvaluationRequest(BaseModel):
     model_name: str = "gemini-3.5-flash-lite"
     api_key: Optional[str] = None
     base_url: Optional[str] = None
+    use_human_calibration: bool = False
 
 
 class HumanVoteRequest(BaseModel):
@@ -424,6 +435,7 @@ def evaluate_pair(req: EvaluationRequest):
             response_b=req.response_b,
             model_a_name=req.model_a_name,
             model_b_name=req.model_b_name,
+            use_human_calibration=req.use_human_calibration,
         )
 
         return evaluation.model_dump()
@@ -438,6 +450,72 @@ def evaluate_pair(req: EvaluationRequest):
         )
 
 
+@app.post("/api/generate-candidate")
+def generate_candidate(req: CandidateGenerationRequest):
+    """Generates a candidate completion using the requested model and prompt."""
+    load_dotenv(override=True)
+    provider = req.provider.strip().lower()
+
+    constraints_text = ""
+    if req.constraints:
+        constraints_text = "\n\nExplicit constraints to obey:\n" + "\n".join(f"- {c}" for c in req.constraints)
+
+    full_prompt = f"{req.prompt}{constraints_text}"
+
+    try:
+        if provider in ["gemini", "google", ""]:
+            api_key = req.api_key or os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=400, detail="Gemini API key not found. Please set in Settings.")
+            chat_model = get_chat_model("gemini", req.model_name or "gemini-3.5-flash-lite", api_key=api_key)
+        elif provider == "openai":
+            api_key = req.api_key or os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise HTTPException(status_code=400, detail="OpenAI API key not found.")
+            chat_model = get_chat_model("openai", req.model_name or "gpt-4o-mini", api_key=api_key)
+        elif provider == "ollama":
+            base_url = req.base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            chat_model = get_chat_model("ollama", req.model_name or "llama3.2", base_url=base_url)
+        else:
+            chat_model = get_chat_model("gemini", "gemini-3.5-flash-lite", api_key=os.getenv("GEMINI_API_KEY"))
+
+        from langchain_core.messages import HumanMessage
+        result = chat_model.invoke([HumanMessage(content=full_prompt)])
+
+        text = ""
+        if hasattr(result, "content"):
+            if isinstance(result.content, str):
+                text = result.content
+            elif isinstance(result.content, list):
+                text = "".join(p if isinstance(p, str) else p.get("text", "") for p in result.content)
+            else:
+                text = str(result.content)
+        else:
+            text = str(result)
+
+        return {
+            "response": text.strip(),
+            "model_name": req.model_name or provider,
+            "provider": provider
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Candidate generation failed: {str(e)}")
+
+
+@app.get("/api/guidelines")
+def get_guidelines():
+    """Returns stored human alignment calibration guidelines."""
+    items = GuidelineBank.get_all_guidelines()
+    return {
+        "total": len(items),
+        "guidelines": items
+    }
+
+
 AUDITS_FILE = Path(__file__).parents[3] / "data" / "human_audits.jsonl"
 
 
@@ -449,11 +527,14 @@ def submit_human_audit(req: DetailedHumanAuditRequest):
     """
     AUDITS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
+    winner_matched = (req.human_overall_winner.value == req.ai_verdict)
+
     # 1. Rubric comparisons
     rubric_diffs = []
     total_abs_diff = 0.0
     rubric_match_count = 0
     total_rubric_points = 0
+    any_rubric_override = False
 
     for hr in req.human_rubrics:
         dim_key = hr.dimension.value if hasattr(hr.dimension, "value") else str(hr.dimension)
@@ -469,6 +550,8 @@ def submit_human_audit(req: DetailedHumanAuditRequest):
         aligned = (diff_a <= 0.5) and (diff_b <= 0.5)
         if aligned:
             rubric_match_count += 1
+        if not hr.agreed_with_ai or not aligned:
+            any_rubric_override = True
 
         rubric_diffs.append({
             "dimension": dim_key,
@@ -482,6 +565,24 @@ def submit_human_audit(req: DetailedHumanAuditRequest):
             "agreed_with_ai": hr.agreed_with_ai,
             "comment": hr.comment,
         })
+
+    # Enforce mandatory reasoning on disagreement/override
+    has_disagreement = (not winner_matched) or any_rubric_override
+    if has_disagreement:
+        if not req.human_rationale or len(req.human_rationale.strip()) < 8:
+            raise HTTPException(
+                status_code=400,
+                detail="Mandatory Annotator Rationale: Whenever you disagree with the AI verdict or override rubric scores, you must provide your detailed alignment reasoning."
+            )
+
+        # Record this human override as a new few-shot calibration guideline!
+        GuidelineBank.add_human_override_guideline(
+            prompt=req.prompt,
+            constraints=[],
+            human_winner=req.human_overall_winner.value,
+            annotator_rationale=req.human_rationale,
+            scenario_focus=f"Human Audit #{len(GuidelineBank.get_all_guidelines())+1} Calibration"
+        )
 
     mae = (total_abs_diff / total_rubric_points) if total_rubric_points > 0 else 0.0
     rubric_alignment_rate = (rubric_match_count / len(req.human_rubrics) * 100.0) if req.human_rubrics else 0.0

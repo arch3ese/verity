@@ -149,21 +149,57 @@
         </div>
       </div>
 
+      <!-- DUAL LIVE GENERATION & CONTROLS -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/50 border border-slate-800">
+        <div class="flex items-center space-x-2">
+          <button type="button" onclick="generateBothCandidates()" id="btn-gen-both" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-indigo-500/40 text-indigo-300 font-semibold text-xs shadow-md transition">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span>⚡ Generate Both Candidates Live</span>
+          </button>
+          <span class="text-[11px] text-slate-400 hidden sm:inline">Query models simultaneously on the prompt & constraints</span>
+        </div>
+
+        <!-- Human Calibration Toggle -->
+        <label class="flex items-center space-x-2 cursor-pointer bg-slate-900 border border-slate-700 hover:border-indigo-500 rounded-xl px-3.5 py-2 text-xs text-slate-200 transition">
+          <input type="checkbox" id="toggle-human-calibration" checked class="rounded border-slate-700 text-indigo-600 focus:ring-0">
+          <div class="flex items-center space-x-1.5">
+            <i data-lucide="brain-circuit" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span class="font-medium">Human Alignment Calibration (Few-Shot)</span>
+            <span id="guidelines-count-badge" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300">Active</span>
+          </div>
+        </label>
+      </div>
+
       <!-- SIDE-BY-SIDE CANDIDATES -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         <!-- CANDIDATE A -->
         <div class="glass-card rounded-2xl p-5 flex flex-col space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2.5 gap-2">
             <div class="flex items-center space-x-2">
               <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
-              <span class="text-sm font-bold text-white">Candidate A</span>
-              <input id="model-a-name" value="Llama-3.2-FineTuned" class="bg-transparent text-xs text-indigo-400 border-b border-dashed border-slate-700 focus:outline-none px-1 py-0.5">
+              <span class="text-xs font-bold text-white uppercase tracking-wider">Candidate A:</span>
+              <select id="source-model-a" onchange="onSourceModelChanged('a')" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2 py-1 text-indigo-300 focus:outline-none focus:border-indigo-500">
+                <option value="custom">✍️ Custom Response (Manual / Paste)</option>
+                <option value="gemini:gemini-3.5-flash-lite">⚡ Gemini 3.5 Flash-Lite (Live)</option>
+                <option value="gemini:gemini-flash-latest">⚡ Gemini Flash Latest (Live)</option>
+                <option value="openai:gpt-4o-mini">⚡ OpenAI gpt-4o-mini (Live)</option>
+                <option value="ollama:llama3.2">🦙 Ollama Llama 3.2 (Local)</option>
+                <option value="ollama:qwen2.5">🦙 Ollama Qwen 2.5 (Local)</option>
+              </select>
             </div>
-            <div class="flex items-center space-x-2 text-xs text-slate-400">
-              <span id="cand-a-chars">0 chars</span>
-              <span>•</span>
-              <span id="cand-a-words">0 words</span>
+            
+            <div class="flex items-center space-x-2">
+              <button type="button" onclick="generateCandidate('a')" id="btn-gen-a" class="hidden flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50 border border-indigo-500/40 text-[11px] font-semibold transition">
+                <i data-lucide="play" class="w-3 h-3"></i>
+                <span>Generate A</span>
+              </button>
+              <input id="model-a-name" value="Candidate A" placeholder="Label / Model" class="w-24 sm:w-28 bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-300 px-2 py-0.5 focus:outline-none">
+              <div class="flex items-center space-x-1.5 text-[11px] text-slate-400">
+                <span id="cand-a-chars">0c</span>
+                <span>•</span>
+                <span id="cand-a-words">0w</span>
+              </div>
             </div>
           </div>
           <textarea id="response-a-input" rows="7" oninput="updateWordCounts()" class="flex-1 w-full bg-slate-900/90 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 code-font focus:outline-none focus:border-indigo-500 transition" placeholder="Response candidate A text..."></textarea>
@@ -171,16 +207,31 @@
 
         <!-- CANDIDATE B -->
         <div class="glass-card rounded-2xl p-5 flex flex-col space-y-3">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2.5 gap-2">
             <div class="flex items-center space-x-2">
               <span class="w-3 h-3 rounded-full bg-purple-500"></span>
-              <span class="text-sm font-bold text-white">Candidate B</span>
-              <input id="model-b-name" value="Generic-Baseline-LLM" class="bg-transparent text-xs text-purple-400 border-b border-dashed border-slate-700 focus:outline-none px-1 py-0.5">
+              <span class="text-xs font-bold text-white uppercase tracking-wider">Candidate B:</span>
+              <select id="source-model-b" onchange="onSourceModelChanged('b')" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2 py-1 text-purple-300 focus:outline-none focus:border-purple-500">
+                <option value="custom">✍️ Custom Response (Manual / Paste)</option>
+                <option value="gemini:gemini-3.5-flash-lite">⚡ Gemini 3.5 Flash-Lite (Live)</option>
+                <option value="gemini:gemini-flash-latest">⚡ Gemini Flash Latest (Live)</option>
+                <option value="openai:gpt-4o-mini">⚡ OpenAI gpt-4o-mini (Live)</option>
+                <option value="ollama:llama3.2">🦙 Ollama Llama 3.2 (Local)</option>
+                <option value="ollama:qwen2.5">🦙 Ollama Qwen 2.5 (Local)</option>
+              </select>
             </div>
-            <div class="flex items-center space-x-2 text-xs text-slate-400">
-              <span id="cand-b-chars">0 chars</span>
-              <span>•</span>
-              <span id="cand-b-words">0 words</span>
+            
+            <div class="flex items-center space-x-2">
+              <button type="button" onclick="generateCandidate('b')" id="btn-gen-b" class="hidden flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-purple-600/30 text-purple-300 hover:bg-purple-600/50 border border-purple-500/40 text-[11px] font-semibold transition">
+                <i data-lucide="play" class="w-3 h-3"></i>
+                <span>Generate B</span>
+              </button>
+              <input id="model-b-name" value="Candidate B" placeholder="Label / Model" class="w-24 sm:w-28 bg-slate-900 border border-slate-700 rounded text-[11px] text-slate-300 px-2 py-0.5 focus:outline-none">
+              <div class="flex items-center space-x-1.5 text-[11px] text-slate-400">
+                <span id="cand-b-chars">0c</span>
+                <span>•</span>
+                <span id="cand-b-words">0w</span>
+              </div>
             </div>
           </div>
           <textarea id="response-b-input" rows="7" oninput="updateWordCounts()" class="flex-1 w-full bg-slate-900/90 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 code-font focus:outline-none focus:border-purple-500 transition" placeholder="Response candidate B text..."></textarea>
@@ -542,8 +593,27 @@
       await checkApiStatus();
       await loadPresets();
       await loadRubrics();
+      await loadGuidelineCount();
+      onSourceModelChanged('a');
+      onSourceModelChanged('b');
       if (globalPresets.length > 0) {
         loadPreset(0);
+      }
+    }
+
+    async function loadGuidelineCount() {
+      try {
+        const res = await fetch('/api/guidelines');
+        if (!res.ok) return;
+        const data = await res.json();
+        const badge = document.getElementById('guidelines-count-badge');
+        if (badge) {
+          const total = data.total || 0;
+          badge.innerText = `${total} Exemplars`;
+          badge.title = `${total} golden alignment exemplars injected in-context when enabled`;
+        }
+      } catch (e) {
+        console.error("Failed to load guidelines count", e);
       }
     }
 
@@ -607,8 +677,129 @@
       document.getElementById('response-b-input').value = item.response_b;
       document.getElementById('model-a-name').value = item.model_a_name || "Candidate A";
       document.getElementById('model-b-name').value = item.model_b_name || "Candidate B";
+      document.getElementById('source-model-a').value = 'custom';
+      document.getElementById('source-model-b').value = 'custom';
+      onSourceModelChanged('a');
+      onSourceModelChanged('b');
       updateWordCounts();
       document.getElementById('results-panel').classList.add('hidden');
+    }
+
+    function onSourceModelChanged(cand) {
+      const select = document.getElementById(`source-model-${cand}`);
+      const btn = document.getElementById(`btn-gen-${cand}`);
+      const nameInput = document.getElementById(`model-${cand}-name`);
+      const val = select.value;
+      if (val === 'custom') {
+        btn.classList.add('hidden');
+        if (nameInput.value.includes('gemini') || nameInput.value.includes('gpt') || nameInput.value.includes('llama') || nameInput.value.includes('qwen')) {
+          nameInput.value = cand === 'a' ? 'Candidate A' : 'Candidate B';
+        }
+      } else {
+        btn.classList.remove('hidden');
+        const parts = val.split(':');
+        if (parts.length > 1) {
+          nameInput.value = parts[1];
+        }
+      }
+      lucide.createIcons();
+    }
+
+    async function generateCandidate(cand) {
+      const select = document.getElementById(`source-model-${cand}`);
+      const val = select.value;
+      if (val === 'custom') {
+        alert("Select a live model in the dropdown first (e.g. Gemini, OpenAI, or Ollama).");
+        return;
+      }
+
+      const prompt = document.getElementById('prompt-input').value.trim();
+      if (!prompt) {
+        alert("Please enter an evaluation prompt first.");
+        return;
+      }
+
+      const [provider, modelName] = val.split(':');
+      const constraints = document.getElementById('constraints-input').value
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      let apiKey = null;
+      let baseUrl = null;
+
+      if (provider === "gemini") {
+        apiKey = localStorage.getItem('gemini_api_key');
+      } else if (provider === "openai") {
+        apiKey = localStorage.getItem('openai_api_key');
+      } else if (provider === "ollama") {
+        baseUrl = localStorage.getItem('ollama_url') || "http://localhost:11434";
+      }
+
+      const btn = document.getElementById(`btn-gen-${cand}`);
+      const origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i><span>Generating...</span>`;
+      lucide.createIcons();
+
+      try {
+        const res = await fetch('/api/generate-candidate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            constraints,
+            provider,
+            model_name: modelName,
+            api_key: apiKey,
+            base_url: baseUrl,
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Generation failed for ${cand.toUpperCase()}: ${err.detail || 'Unknown error'}`);
+          return;
+        }
+
+        const data = await res.json();
+        document.getElementById(`response-${cand}-input`).value = data.response;
+        updateWordCounts();
+      } catch (err) {
+        alert(`Generation request error: ${err}`);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        lucide.createIcons();
+      }
+    }
+
+    async function generateBothCandidates() {
+      const selA = document.getElementById('source-model-a').value;
+      const selB = document.getElementById('source-model-b').value;
+
+      if (selA === 'custom' && selB === 'custom') {
+        alert("To generate candidates live, select a live model (Gemini, OpenAI, or Ollama) from the dropdown above Candidate A or Candidate B.");
+        return;
+      }
+
+      const btnBoth = document.getElementById('btn-gen-both');
+      const origHtml = btnBoth.innerHTML;
+      btnBoth.disabled = true;
+      btnBoth.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Generating Candidates...</span>`;
+      lucide.createIcons();
+
+      const promises = [];
+      if (selA !== 'custom') promises.push(generateCandidate('a'));
+      if (selB !== 'custom') promises.push(generateCandidate('b'));
+
+      try {
+        await Promise.all(promises);
+      } finally {
+        btnBoth.disabled = false;
+        btnBoth.innerHTML = origHtml;
+        lucide.createIcons();
+      }
     }
 
     function updateWordCounts() {
@@ -666,6 +857,8 @@
         modelName = localStorage.getItem('ollama_model') || "llama3.2";
       }
 
+      const useHumanCalibration = document.getElementById('toggle-human-calibration') ? document.getElementById('toggle-human-calibration').checked : false;
+
       try {
         const res = await fetch('/api/evaluate', {
           method: 'POST',
@@ -682,6 +875,7 @@
             model_name: modelName,
             api_key: apiKey,
             base_url: baseUrl,
+            use_human_calibration: useHumanCalibration,
           })
         });
 
@@ -913,8 +1107,24 @@
     async function submitDetailedHumanAudit() {
       if (!currentEvaluation) return;
 
-      const rationale = document.getElementById('human-rationale-input').value;
+      const rationale = document.getElementById('human-rationale-input').value.trim();
       const rubricsList = Object.values(humanRubricAudits);
+
+      // Check if user is overriding AI verdict or any rubric score
+      const winnerMatched = (selectedHumanChoice === currentEvaluation.final_consensus_winner);
+      const anyRubricOverride = rubricsList.some(r => !r.agreed_with_ai);
+
+      if ((!winnerMatched || anyRubricOverride) && rationale.length < 8) {
+        alert("Mandatory Annotator Rationale:\n\nYou are overriding the AI judge verdict or individual rubric scores. In enterprise evaluation and alignment workflows, an explanatory rationale is strictly required to train and calibrate the model.\n\nPlease describe your reasoning in the rationale box.");
+        document.getElementById('human-rationale-input').focus();
+        return;
+      }
+
+      const submitBtn = document.getElementById('submit-audit-btn');
+      const origText = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Saving & Calibrating...</span>`;
+      lucide.createIcons();
 
       const aiScoresDict = {};
       (currentEvaluation.forward_verdict.dimension_scores || []).forEach(ds => {
@@ -942,6 +1152,12 @@
           body: JSON.stringify(payload)
         });
 
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.detail || "Failed to submit human audit");
+          return;
+        }
+
         const data = await res.json();
         document.getElementById('kappa-value').innerText = data.cohens_kappa.toFixed(3);
         document.getElementById('audit-mae-text').innerText = `${data.rubric_mae.toFixed(2)} pts`;
@@ -951,8 +1167,15 @@
         badge.classList.remove('hidden');
         badgeText.innerText = `Audit Saved! Rubric Alignment: ${data.rubric_alignment_rate}% • Kappa: ${data.cohens_kappa.toFixed(3)} (${data.kappa_interpretation})`;
         lucide.createIcons();
+
+        // Refresh guideline exemplar count badge
+        await loadGuidelineCount();
       } catch (err) {
         alert("Failed to submit audit: " + err);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origText;
+        lucide.createIcons();
       }
     }
 

@@ -31,6 +31,7 @@ class DebiasingJudge:
         response_b: str,
         model_a_name: str = "model_a",
         model_b_name: str = "model_b",
+        use_human_calibration: bool = False,
     ) -> DebiasedEvaluation:
         """
         Executes dual evaluation (Forward: A vs B, Reverse: B vs A)
@@ -44,12 +45,14 @@ class DebiasingJudge:
                 sample=sample,
                 response_a=response_a,
                 response_b=response_b,
+                use_human_calibration=use_human_calibration,
             )
             future_reverse = executor.submit(
                 self.judge.evaluate_pair,
                 sample=sample,
                 response_a=response_b,
                 response_b=response_a,
+                use_human_calibration=use_human_calibration,
             )
             forward_verdict = future_forward.result()
             reverse_raw_verdict = future_reverse.result()
