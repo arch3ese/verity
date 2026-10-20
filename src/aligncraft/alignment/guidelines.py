@@ -97,6 +97,19 @@ class GuidelineBank:
         return " ".join(text.strip().split()).casefold()
 
     @classmethod
+    def _normalize_candidate(cls, text: str) -> str:
+        """
+        Normalizes candidate responses for exact comparison:
+        - Normalizes Windows and legacy line endings (\r\n and \r) to standard \n.
+        - Trims leading and trailing whitespace.
+        - PRESERVES internal whitespace, indentation, and letter case so code snippets
+          differing in indentation or responses differing in capitalization are NOT conflated.
+        """
+        if not text:
+            return ""
+        return text.replace("\r\n", "\n").replace("\r", "\n").strip()
+
+    @classmethod
     def find_exact_prompt_override(cls, prompt: str) -> Optional[Dict[str, Any]]:
         """
         Searches for an active human annotator override strictly matching the normalized prompt.

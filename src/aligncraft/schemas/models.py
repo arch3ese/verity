@@ -78,6 +78,10 @@ class PairwiseVerdict(BaseModel):
     overall_reasoning: str
     detected_errors_model_a: List[ErrorTag] = Field(default_factory=list)
     detected_errors_model_b: List[ErrorTag] = Field(default_factory=list)
+    inconsistency_detected: bool = Field(
+        default=False,
+        description="True if judge scores contradict verified programmatic telemetry"
+    )
 
 
 class DebiasedEvaluation(BaseModel):
@@ -97,6 +101,14 @@ class DebiasedEvaluation(BaseModel):
     verbosity_bias_flag: bool = Field(
         default=False,
         description="True if winner is significantly more verbose without higher quality"
+    )
+    inconsistency_detected: bool = Field(
+        default=False,
+        description="True if LLM scores contradicted deterministic facts in either pass"
+    )
+    override_conflicts_with_veto: bool = Field(
+        default=False,
+        description="True if human ground-truth override favored a candidate that triggered a critical veto"
     )
     confidence_score: float = Field(ge=0.0, le=1.0)
     summary_critique: str

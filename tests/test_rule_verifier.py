@@ -51,7 +51,7 @@ def test_unparsed_semantic_constraints_report_unverified_not_passed():
     assert len(rep.constraint_audits) == 2
     for item in rep.constraint_audits:
         assert item.passed is None, f"Expected passed=None for unparsed rule, got {item.passed}"
-        assert "UNVERIFIED" in item.details
+        assert "Requires subjective LLM judgment" in item.details
 
     # Verify telemetry formatting excludes unverified from pass ratio
     pair_report = RuleVerifier.verify_pair("Topic", semantic_rules, "Resp A", "Resp B")
@@ -74,11 +74,14 @@ def test_mixed_deterministic_and_semantic_constraints_split():
 
 def test_telemetry_prompt_zero_deterministic_never_claims_passed_ratio():
     """
-    COR-01 telemetry verification:
+    COR-01 / Task 2.0c telemetry verification:
     Asserts that when all constraints are semantic (0 deterministic):
-    1. Telemetry explicitly says '0 deterministic constraints checked; 4 unverified/semantic constraints require LLM judgment'.
-    2. Telemetry NEVER claims '4/4 passed' or 'N/N passed'.
-    3. Each constraint is explicitly tagged [UNVERIFIED].
+    1. Header is '### CANDIDATE INSTRUCTION & CONSTRAINT AUDIT' (not GROUND TRUTH VERIFICATION).
+    2. Prompt does NOT claim 'verified deterministically' or 'Base your scores strictly on these verified facts'.
+    3. Telemetry explicitly says '0 deterministic constraints checked; 4 unverified/semantic constraints require LLM judgment'.
+    4. Telemetry NEVER claims '4/4 passed', '0/0 passed', or 'N/N passed'.
+    5. No doubled label '[UNVERIFIED] (UNVERIFIED (Requires ...))'.
+    6. In mixed case, GROUND TRUTH VERIFICATION and verified fact directives ARE present.
     """
     semantic_rules = [
         "Adopt a Shakespearean tone",
@@ -89,6 +92,12 @@ def test_telemetry_prompt_zero_deterministic_never_claims_passed_ratio():
     pair_report = RuleVerifier.verify_pair("Physics topic", semantic_rules, "Candidate A response", "Candidate B response")
     prompt_text = pair_report.summary_audit_prompt
 
+    # Header and grounding checks for zero-deterministic case
+    assert "### CANDIDATE INSTRUCTION & CONSTRAINT AUDIT" in prompt_text
+    assert "GROUND TRUTH VERIFICATION" not in prompt_text
+    assert "verified deterministically" not in prompt_text
+    assert "Base your scores strictly on these verified facts" not in prompt_text
+
     # Wording check
     assert "0 deterministic constraints checked; 4 unverified/semantic constraints require LLM judgment" in prompt_text
     
@@ -98,8 +107,24 @@ def test_telemetry_prompt_zero_deterministic_never_claims_passed_ratio():
     assert "passed constraints" not in prompt_text.lower()
     assert "verified constraints passed" not in prompt_text
 
-    # Every item must be marked [UNVERIFIED]
+    # No doubled label
+    assert "[UNVERIFIED] (UNVERIFIED" not in prompt_text
     for rule in semantic_rules:
-        assert f"- Constraint '{rule}': [UNVERIFIED]" in prompt_text
+        assert f"- Constraint '{rule}': [UNVERIFIED] (Requires subjective LLM judgment.)" in prompt_text
+
+    # Mixed case verification
+    mixed_rules = [
+        "Must NOT contain the letter e or E",
+        "Adopt a Shakespearean tone",
+        "Must be exactly 1 sentence"
+    ]
+    mixed_report = RuleVerifier.verify_pair("Physics topic", mixed_rules, "A quick fox jumps.", "An elephant was here.")
+    mixed_prompt = mixed_report.summary_audit_prompt
+
+    assert "### DETERMINISTIC PROGRAMMATIC AUDIT (GROUND TRUTH VERIFICATION)" in mixed_prompt
+    assert "The following programmatic telemetry has been verified deterministically using exact string analysis:" in mixed_prompt
+    assert "Base your scores strictly on these verified facts. Do not contradict verified character occurrences." in mixed_prompt
+    assert "2/2 verified constraints passed; 1 unverified/semantic" in mixed_prompt
+    assert "1/2 verified constraints passed; 1 unverified/semantic" in mixed_prompt
 
 
