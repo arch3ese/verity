@@ -692,6 +692,16 @@
   </div>
 
   <script>
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     let globalPresets = [];
     let currentEvaluation = null;
     let selectedHumanChoice = "model_a";
@@ -1138,7 +1148,7 @@
               <div class="bg-[#0071e3] h-1.5 transition-all" style="width: ${pctA/2}%"></div>
               <div class="bg-[#bf5af2] h-1.5 transition-all" style="width: ${pctB/2}%"></div>
             </div>
-            <p class="text-[11px] text-zinc-400 leading-snug">${ds.justification}</p>
+            <p class="text-[11px] text-zinc-400 leading-snug">${escapeHtml(ds.justification)}</p>
           </div>
         `;
       });
@@ -1146,11 +1156,11 @@
       // 3. Error Violations
       const errA = document.getElementById('errors-model-a');
       const errorsListA = data.forward_verdict.detected_errors_model_a || [];
-      errA.innerHTML = errorsListA.length ? errorsListA.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/25">${e}</span>`).join('') : '<span class="text-xs text-zinc-500 italic">None detected</span>';
+      errA.innerHTML = errorsListA.length ? errorsListA.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/25">${escapeHtml(e)}</span>`).join('') : '<span class="text-xs text-zinc-500 italic">None detected</span>';
 
       const errB = document.getElementById('errors-model-b');
       const errorsListB = data.forward_verdict.detected_errors_model_b || [];
-      errB.innerHTML = errorsListB.length ? errorsListB.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/25">${e}</span>`).join('') : '<span class="text-xs text-zinc-500 italic">None detected</span>';
+      errB.innerHTML = errorsListB.length ? errorsListB.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/25">${escapeHtml(e)}</span>`).join('') : '<span class="text-xs text-zinc-500 italic">None detected</span>';
 
       // 4. Populate Human Multi-Rubric Audit Grid
       renderHumanAuditStation(scoresMap);
@@ -1405,16 +1415,16 @@
           container.innerHTML += `
             <div class="apple-card p-4 space-y-2.5">
               <div class="flex items-center justify-between">
-                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30">Priority ${h.priority}</span>
-                <span class="text-[11px] text-[#86868b] font-medium">${h.tier_name}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30">Priority ${escapeHtml(h.priority)}</span>
+                <span class="text-[11px] text-[#86868b] font-medium">${escapeHtml(h.tier_name)}</span>
               </div>
-              <h3 class="font-bold text-white text-xs tracking-tight">${h.dimension.toUpperCase().replace('_', ' ')}</h3>
-              <p class="text-[11px] text-zinc-300 leading-relaxed">${h.rule}</p>
-              <p class="text-[11px] text-[#86868b]">${info.description || ''}</p>
+              <h3 class="font-bold text-white text-xs tracking-tight">${escapeHtml(h.dimension.toUpperCase().replace('_', ' '))}</h3>
+              <p class="text-[11px] text-zinc-300 leading-relaxed">${escapeHtml(h.rule)}</p>
+              <p class="text-[11px] text-[#86868b]">${escapeHtml(info.description || '')}</p>
               <div class="space-y-1 text-[11px] pt-1">
-                <div class="p-2 rounded-lg bg-[#ff453a]/10 border border-[#ff453a]/20 text-[#ff453a]"><b>1/5 (Fail):</b> ${info.score_1 || ''}</div>
-                <div class="p-2 rounded-lg bg-black/40 text-zinc-300"><b>3/5 (Acceptable):</b> ${info.score_3 || ''}</div>
-                <div class="p-2 rounded-lg bg-[#30d158]/10 border border-[#30d158]/20 text-[#30d158]"><b>5/5 (Exemplary):</b> ${info.score_5 || ''}</div>
+                <div class="p-2 rounded-lg bg-[#ff453a]/10 border border-[#ff453a]/20 text-[#ff453a]"><b>1/5 (Fail):</b> ${escapeHtml(info.score_1 || '')}</div>
+                <div class="p-2 rounded-lg bg-black/40 text-zinc-300"><b>3/5 (Acceptable):</b> ${escapeHtml(info.score_3 || '')}</div>
+                <div class="p-2 rounded-lg bg-[#30d158]/10 border border-[#30d158]/20 text-[#30d158]"><b>5/5 (Exemplary):</b> ${escapeHtml(info.score_5 || '')}</div>
               </div>
             </div>
           `;
@@ -1446,11 +1456,11 @@
       globalPresets.forEach((p, i) => {
         tbody.innerHTML += `
           <tr class="hover:bg-white/[0.02] transition">
-            <td class="p-3 font-mono text-[#0071e3] text-xs">${p.sample.id}</td>
-            <td class="p-3 font-medium text-white">${p.sample.metadata.category || 'Constraint Test'}</td>
-            <td class="p-3 text-zinc-300">${p.model_a_name}</td>
-            <td class="p-3 text-zinc-300">${p.model_b_name}</td>
-            <td class="p-3 font-bold text-[#30d158]">${p.sample.human_preferred.toUpperCase()}</td>
+            <td class="p-3 font-mono text-[#0071e3] text-xs">${escapeHtml(p.sample.id)}</td>
+            <td class="p-3 font-medium text-white">${escapeHtml(p.sample.metadata.category || 'Constraint Test')}</td>
+            <td class="p-3 text-zinc-300">${escapeHtml(p.model_a_name)}</td>
+            <td class="p-3 text-zinc-300">${escapeHtml(p.model_b_name)}</td>
+            <td class="p-3 font-bold text-[#30d158]">${escapeHtml(p.sample.human_preferred.toUpperCase())}</td>
             <td class="p-3 text-[#30d158]">Order-Invariant ✓</td>
           </tr>
         `;

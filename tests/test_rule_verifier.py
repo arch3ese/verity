@@ -41,3 +41,33 @@ def test_gibberish_and_semantic_void_detection():
 
     rep_repeated = RuleVerifier.audit_candidate("noise noise noise noise noise noise", [])
     assert rep_repeated.is_gibberish_or_noise is True
+
+
+def test_unparsed_semantic_constraints_report_unverified_not_passed():
+    semantic_rules = ["Adopt a Shakespearean tone", "Explain quantum physics accurately"]
+    rep = RuleVerifier.audit_candidate("Hello there world.", semantic_rules)
+    
+    # Unparsed semantic constraints must have passed=None (UNVERIFIED), not True
+    assert len(rep.constraint_audits) == 2
+    for item in rep.constraint_audits:
+        assert item.passed is None, f"Expected passed=None for unparsed rule, got {item.passed}"
+        assert "UNVERIFIED" in item.details
+
+    # Verify telemetry formatting excludes unverified from pass ratio
+    pair_report = RuleVerifier.verify_pair("Topic", semantic_rules, "Resp A", "Resp B")
+    assert "2/2 constraints passed" not in pair_report.summary_audit_prompt
+    assert "0 deterministic constraints checked; 2 unverified/semantic" in pair_report.summary_audit_prompt
+
+
+def test_mixed_deterministic_and_semantic_constraints_split():
+    mixed_rules = ["Must NOT contain the letter 'e' or 'E'", "Adopt a poetic style"]
+    rep = RuleVerifier.audit_candidate("A quick brown fox.", mixed_rules)
+    
+    # Rule 1: 'e' constraint -> deterministically verified (clean text has no 'e' -> True)
+    # Rule 2: poetic style -> unverified (None)
+    assert rep.constraint_audits[0].passed is True
+    assert rep.constraint_audits[1].passed is None
+
+    pair_report = RuleVerifier.verify_pair("Topic", mixed_rules, "A quick brown fox.", "An elephant.")
+    assert "1/1 verified constraints passed; 1 unverified/semantic" in pair_report.summary_audit_prompt
+

@@ -31,3 +31,30 @@ def test_add_human_override_guideline():
     )
     assert new_g["human_preferred_winner"] == "model_b"
     assert len(GuidelineBank.get_all_guidelines()) == initial_count + 1
+
+
+def test_exact_prompt_override_does_not_hijack_prefixes():
+    # Register guideline for prompt "Explain"
+    GuidelineBank.add_human_override_guideline(
+        prompt="Explain",
+        constraints=[],
+        human_winner="model_b",
+        annotator_rationale="Annotator rationale for base explain.",
+        scenario_focus="Prefix Test"
+    )
+
+    # Prefix matches must NOT trigger override
+    assert GuidelineBank.find_exact_prompt_override("Explain why gravity exists.") is None
+    assert GuidelineBank.find_exact_prompt_override("Explain how to bake a cake.") is None
+    assert GuidelineBank.find_exact_prompt_override("Ex") is None
+
+    # Normalized exact match MUST match (case-insensitive and collapsed whitespace)
+    matched = GuidelineBank.find_exact_prompt_override("   explain   ")
+    assert matched is not None
+    assert matched["prompt"] == "Explain"
+
+    # Distinct punctuation MUST NOT merge distinct prompts
+    assert GuidelineBank.find_exact_prompt_override("Explain.") is None
+    assert GuidelineBank.find_exact_prompt_override("2+2") is None
+    assert GuidelineBank.find_exact_prompt_override("C++") is None
+

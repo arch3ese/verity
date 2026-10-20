@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 class ConstraintAuditItem(BaseModel):
     constraint: str
-    passed: bool
+    passed: Optional[bool] = None
     details: str
 
 
@@ -183,8 +183,8 @@ class RuleVerifier:
             report.constraint_audits.append(
                 ConstraintAuditItem(
                     constraint=rule_clean,
-                    passed=True,
-                    details="Verified via semantic evaluation."
+                    passed=None,
+                    details="UNVERIFIED (Requires subjective LLM judgment)."
                 )
             )
 
@@ -205,26 +205,54 @@ class RuleVerifier:
         lines.append("The following programmatic telemetry has been verified deterministically using exact string analysis:")
 
         # Model A summary
-        total_a = len(rep_a.constraint_audits)
-        passed_a = sum(1 for item in rep_a.constraint_audits if item.passed)
-        lines.append(f"\n**Candidate A Telemetry ({passed_a}/{total_a} constraints passed)**:")
+        verified_items_a = [item for item in rep_a.constraint_audits if item.passed is not None]
+        unverified_items_a = [item for item in rep_a.constraint_audits if item.passed is None]
+        passed_a = sum(1 for item in verified_items_a if item.passed is True)
+        total_verified_a = len(verified_items_a)
+        num_unverified_a = len(unverified_items_a)
+
+        if total_verified_a > 0:
+            lines.append(f"\n**Candidate A Telemetry ({passed_a}/{total_verified_a} verified constraints passed; {num_unverified_a} unverified/semantic)**:")
+        else:
+            lines.append(f"\n**Candidate A Telemetry (0 deterministic constraints checked; {num_unverified_a} unverified/semantic constraints require LLM judgment)**:")
+
         if rep_a.is_gibberish_or_noise:
             lines.append(f"- [CRITICAL FAILURE] Semantic Void / Pure Noise: {rep_a.gibberish_reason} (Cannot win over communicative text)")
         if rep_a.character_violations:
             lines.append(f"- Negative Character Findings: {', '.join(rep_a.character_violations)}")
         for item in rep_a.constraint_audits:
-            lines.append(f"- Constraint '{item.constraint}': {'[PASSED]' if item.passed else '[FAILED]'} ({item.details})")
+            if item.passed is True:
+                status_str = "[PASSED]"
+            elif item.passed is False:
+                status_str = "[FAILED]"
+            else:
+                status_str = "[UNVERIFIED]"
+            lines.append(f"- Constraint '{item.constraint}': {status_str} ({item.details})")
 
         # Model B summary
-        total_b = len(rep_b.constraint_audits)
-        passed_b = sum(1 for item in rep_b.constraint_audits if item.passed)
-        lines.append(f"\n**Candidate B Telemetry ({passed_b}/{total_b} constraints passed)**:")
+        verified_items_b = [item for item in rep_b.constraint_audits if item.passed is not None]
+        unverified_items_b = [item for item in rep_b.constraint_audits if item.passed is None]
+        passed_b = sum(1 for item in verified_items_b if item.passed is True)
+        total_verified_b = len(verified_items_b)
+        num_unverified_b = len(unverified_items_b)
+
+        if total_verified_b > 0:
+            lines.append(f"\n**Candidate B Telemetry ({passed_b}/{total_verified_b} verified constraints passed; {num_unverified_b} unverified/semantic)**:")
+        else:
+            lines.append(f"\n**Candidate B Telemetry (0 deterministic constraints checked; {num_unverified_b} unverified/semantic constraints require LLM judgment)**:")
+
         if rep_b.is_gibberish_or_noise:
             lines.append(f"- [CRITICAL FAILURE] Semantic Void / Pure Noise: {rep_b.gibberish_reason} (Cannot win over communicative text)")
         if rep_b.character_violations:
             lines.append(f"- Negative Character Findings: {', '.join(rep_b.character_violations)}")
         for item in rep_b.constraint_audits:
-            lines.append(f"- Constraint '{item.constraint}': {'[PASSED]' if item.passed else '[FAILED]'} ({item.details})")
+            if item.passed is True:
+                status_str = "[PASSED]"
+            elif item.passed is False:
+                status_str = "[FAILED]"
+            else:
+                status_str = "[UNVERIFIED]"
+            lines.append(f"- Constraint '{item.constraint}': {status_str} ({item.details})")
 
         lines.append("\n**PROPORTIONAL SCORING GUIDELINES**:")
         lines.append("- Score 1.0 (Critical Failure): Non-communicative gibberish, refusal, or zero constraints followed.")

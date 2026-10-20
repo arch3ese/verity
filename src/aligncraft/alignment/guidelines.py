@@ -21,6 +21,7 @@ class AlignmentGuideline(BaseModel):
     human_preferred_winner: str
     annotator_rationale: str
     key_alignment_rule: str
+    preferred_response: Optional[str] = None
     is_active: bool = True
 
 
@@ -81,17 +82,38 @@ class GuidelineBank:
         return cls._ensure_initialized()
 
     @classmethod
+    def _normalize_prompt(cls, text: str) -> str:
+        """
+        Normalizes a prompt string for exact matching:
+        1. Strips leading and trailing whitespace.
+        2. Collapses internal contiguous whitespace to a single space.
+        3. Applies casefolding for Unicode-aware case-insensitivity.
+        Note: Punctuation is intentionally PRESERVED to prevent merging distinct
+        semantic prompts (e.g. '2+2' vs '22', 'C++' vs 'C', or questions with/without '?').
+        """
+        if not text:
+            return ""
+        return " ".join(text.strip().split()).casefold()
+
+    @classmethod
     def find_exact_prompt_override(cls, prompt: str) -> Optional[Dict[str, Any]]:
-        """Searches for an active human annotator override matching the given prompt."""
+        """
+        Searches for an active human annotator override strictly matching the normalized prompt.
+        Note: AlignCraft currently uses exact normalized matching for ground-truth overrides
+        and recency-based sampling for exemplars. Semantic embedding-based retrieval is not
+        currently implemented.
+        """
         if not prompt:
             return None
         guidelines = cls.get_all_guidelines()
-        target = prompt.strip().rstrip(".").lower()
+        target = cls._normalize_prompt(prompt)
+        if not target:
+            return None
         for g in reversed(guidelines):
-            g_prompt = g.get("prompt", "").strip().rstrip(".").lower()
+            g_prompt = cls._normalize_prompt(g.get("prompt", ""))
             if not g_prompt:
                 continue
-            if g.get("is_active", True) and (g_prompt == target or target.startswith(g_prompt) or g_prompt.startswith(target)):
+            if g.get("is_active", True) and g_prompt == target:
                 return g
         return None
 
@@ -102,7 +124,8 @@ class GuidelineBank:
         constraints: List[str],
         human_winner: str,
         annotator_rationale: str,
-        scenario_focus: str = "Human Annotator Override"
+        scenario_focus: str = "Human Annotator Override",
+        preferred_response: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Records a human annotator's rationale as a new active alignment rule."""
         guidelines = cls._ensure_initialized()
@@ -115,6 +138,7 @@ class GuidelineBank:
             "human_preferred_winner": human_winner,
             "annotator_rationale": annotator_rationale,
             "key_alignment_rule": f"Annotator Calibration: {annotator_rationale[:200]}",
+            "preferred_response": preferred_response.strip() if preferred_response else None,
             "is_active": True
         }
         guidelines.append(new_item)

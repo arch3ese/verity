@@ -123,12 +123,37 @@ class DebiasingJudge:
         if use_human_calibration and sample and sample.prompt:
             exact_override = GuidelineBank.find_exact_prompt_override(sample.prompt)
             if exact_override:
+                preferred_resp = exact_override.get("preferred_response")
                 hw = exact_override.get("human_preferred_winner")
-                if hw in ["model_a", "model_b"]:
+
+                # Track candidate by text identity when available to remain order-invariant
+                if response_a.strip() == response_b.strip():
+                    final_winner = PreferenceChoice.TIE
+                    cand_label = "Equally Rated"
+                elif preferred_resp:
+                    if response_a.strip() == preferred_resp.strip():
+                        final_winner = PreferenceChoice.MODEL_A
+                        cand_label = model_a_name or "Candidate A"
+                    elif response_b.strip() == preferred_resp.strip():
+                        final_winner = PreferenceChoice.MODEL_B
+                        cand_label = model_b_name or "Candidate B"
+                    else:
+                        final_winner = PreferenceChoice.MODEL_A if hw == "model_a" else PreferenceChoice.MODEL_B
+                        cand_label = (model_a_name or "Candidate A") if final_winner == PreferenceChoice.MODEL_A else (model_b_name or "Candidate B")
+                elif hw in ["model_a", "model_b"]:
                     final_winner = PreferenceChoice.MODEL_A if hw == "model_a" else PreferenceChoice.MODEL_B
+                    cand_label = (model_a_name or "Candidate A") if final_winner == PreferenceChoice.MODEL_A else (model_b_name or "Candidate B")
+                else:
+                    cand_label = "Equally Rated"
+
+                if hw in ["model_a", "model_b"] and response_a.strip() != response_b.strip():
                     confidence = 0.98
                     positional_bias_detected = False
-                    summary = f"Human Ground-Truth Calibrated: Senior annotator preference ({'Candidate A' if hw == 'model_a' else 'Candidate B'}) enforced for this prompt. Rationale: {exact_override.get('annotator_rationale')}"
+                    summary = f"Human Ground-Truth Calibrated: Senior annotator preference ({cand_label}) enforced for this prompt. Rationale: {exact_override.get('annotator_rationale')}"
+                elif response_a.strip() == response_b.strip():
+                    confidence = 1.0
+                    positional_bias_detected = False
+                    summary = f"Human Ground-Truth Calibrated: Both candidates have identical content. Rationale: {exact_override.get('annotator_rationale')}"
 
         # Calculate Tiebreaker Options if Indeterminate
         can_resolve_tiebreaker = False

@@ -310,18 +310,6 @@ Only return JSON. No introductory pleasantries."""
                 else:
                     winner = PreferenceChoice.TIE
 
-        # 3. Ground-Truth Senior Human Annotator Calibration Override
-        if use_human_calibration and sample and sample.prompt:
-            exact_override = GuidelineBank.find_exact_prompt_override(sample.prompt)
-            if exact_override:
-                hw = exact_override.get("human_preferred_winner")
-                if hw == "model_a":
-                    winner = PreferenceChoice.MODEL_A
-                    reasons.append(f"Calibrated by Senior Human Annotator Ground-Truth: {exact_override.get('annotator_rationale')}")
-                elif hw == "model_b":
-                    winner = PreferenceChoice.MODEL_B
-                    reasons.append(f"Calibrated by Senior Human Annotator Ground-Truth: {exact_override.get('annotator_rationale')}")
-
         return PairwiseVerdict(
             winner=winner,
             margin=verdict.margin,

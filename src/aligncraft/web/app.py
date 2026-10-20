@@ -575,13 +575,20 @@ def submit_human_audit(req: DetailedHumanAuditRequest):
                 detail="Mandatory Annotator Rationale: Whenever you disagree with the AI verdict or override rubric scores, you must provide your detailed alignment reasoning."
             )
 
+        pref_resp = None
+        if req.human_overall_winner == PreferenceChoice.MODEL_A:
+            pref_resp = req.response_a
+        elif req.human_overall_winner == PreferenceChoice.MODEL_B:
+            pref_resp = req.response_b
+
         # Record this human override as a new few-shot calibration guideline!
         GuidelineBank.add_human_override_guideline(
             prompt=req.prompt,
             constraints=[],
             human_winner=req.human_overall_winner.value,
             annotator_rationale=req.human_rationale,
-            scenario_focus=f"Human Audit #{len(GuidelineBank.get_all_guidelines())+1} Calibration"
+            scenario_focus=f"Human Audit #{len(GuidelineBank.get_all_guidelines())+1} Calibration",
+            preferred_response=pref_resp,
         )
 
     mae = (total_abs_diff / total_rubric_points) if total_rubric_points > 0 else 0.0
@@ -656,10 +663,14 @@ def export_human_dpo(req: DetailedHumanAuditRequest):
         rejected = req.response_a
         margin = "decisive"
     else:
-        # Tie or both rejected: return A as chosen, B as rejected with tie margin
-        chosen = req.response_a
-        rejected = req.response_b
-        margin = "slight"
+        # Non-directional verdicts (TIE or INDETERMINATE) cannot produce a valid DPO preference pair
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot export DPO preference triplet for non-directional verdict '{human_win.value}'. "
+                "Direct Preference Optimization requires a strictly distinct chosen and rejected candidate."
+            )
+        )
 
     dpo_triplet = {
         "prompt": req.prompt,
