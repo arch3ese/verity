@@ -368,6 +368,15 @@ def serve_logo():
     return FileResponse(logo_path, media_type="image/png")
 
 
+@app.get("/favicon.ico")
+def serve_favicon():
+    """Serves the Verity Studio favicon."""
+    fav_path = STATIC_DIR / "favicon-32x32.png"
+    if not fav_path.exists():
+        fav_path = STATIC_DIR / "logo.png"
+    return FileResponse(fav_path, media_type="image/png")
+
+
 @app.get("/api/status")
 def get_status():
     """Returns environment status and API key detection."""
