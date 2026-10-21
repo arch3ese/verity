@@ -1,5 +1,5 @@
 """
-FastAPI Server for AlignCraft Studio:
+FastAPI Server for Verity Studio:
 Interactive Web UI backend for pairwise RLHF evaluations, annotator auditing,
 and benchmark analytics.
 """
@@ -44,9 +44,9 @@ load_dotenv()
 logger = logging.getLogger("aligncraft.web.app")
 
 app = FastAPI(
-    title="AlignCraft Studio API",
-    description="Backend API for RLHF & AI Training Evaluation Studio",
-    version="0.1.0",
+    title="Verity Studio API",
+    description="Backend API for Verity: RLHF & AI Training Ground Truth Evaluation Studio",
+    version="1.0.0",
 )
 
 # Configurable explicit CORS origins (API-03: wildcard + credentials disallowed)
@@ -352,7 +352,7 @@ class HumanVoteRequest(BaseModel):
 # --- API Routes ---
 @app.get("/")
 def serve_index():
-    """Serves the main AlignCraft Studio web interface."""
+    """Serves the main Verity Studio web interface."""
     index_path = STATIC_DIR / "index.html"
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="Web interface static files not found.")
@@ -727,7 +727,7 @@ def export_human_dpo(req: DetailedHumanAuditRequest):
         "margin": margin,
         "justification": req.human_rationale or f"Human gold-standard preference: {human_win.value.upper()}",
         "metadata": {
-            "source": "aligncraft_human_audit",
+            "source": "verity_human_audit",
             "annotator_type": "human_gold_standard",
             "human_verdict": human_win.value,
             "ai_consensus_verdict": req.ai_verdict,

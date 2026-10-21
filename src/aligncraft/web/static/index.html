@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AlignCraft Studio | RLHF & AI Training Evaluation Engine</title>
+  <title>Verity | AI Alignment & Ground Truth Evaluation Studio</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -119,12 +119,27 @@
       
       <!-- Brand & Title -->
       <div class="flex items-center space-x-3">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-b from-[#2c2c2e] to-[#1c1c1e] border border-white/10 flex items-center justify-center shadow-sm">
-          <i data-lucide="scale" class="w-4 h-4 text-[#0071e3]"></i>
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-b from-[#1f2028] to-[#111217] border border-white/15 flex items-center justify-center shadow-md shadow-blue-500/10 relative overflow-hidden group">
+          <div class="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-blue-600/10 to-purple-600/10 pointer-events-none"></div>
+          <svg class="w-4.5 h-4.5 relative z-10 drop-shadow-[0_1px_4px_rgba(0,113,227,0.4)]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="verity-brand-left" x1="4" y1="5" x2="12" y2="19" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#38bdf8"/>
+                <stop offset="100%" stop-color="#0071e3"/>
+              </linearGradient>
+              <linearGradient id="verity-brand-right" x1="12" y1="19" x2="20" y2="5" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#0071e3"/>
+                <stop offset="100%" stop-color="#c084fc"/>
+              </linearGradient>
+            </defs>
+            <!-- Sleek Precision V Monogram with Ground Truth Verification Accent -->
+            <path d="M4.5 5.5L12 19.5L19.5 5.5" stroke="url(#verity-brand-left)" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8.5 11L12 15.5L18.5 7" stroke="url(#verity-brand-right)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+          </svg>
         </div>
         <div class="flex items-baseline space-x-2">
-          <span class="font-semibold text-sm tracking-tight text-white">AlignCraft</span>
-          <span class="text-[11px] text-[#86868b] font-medium hidden sm:inline">AI Evaluation & Alignment Studio</span>
+          <span class="font-bold text-sm tracking-tight text-white">Verity</span>
+          <span class="text-[11px] text-[#86868b] font-medium hidden sm:inline">AI Evaluation & Ground Truth Studio</span>
         </div>
       </div>
 
