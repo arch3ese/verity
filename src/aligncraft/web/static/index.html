@@ -22,6 +22,7 @@
             apple: {
               blue: '#0071e3',
               blueHover: '#0077ed',
+              teal: '#30b0c7',
               darkBg: '#050508',
               panel: 'rgba(18, 18, 22, 0.72)',
               panelElevated: 'rgba(24, 24, 29, 0.85)',
@@ -31,7 +32,8 @@
               green: '#30d158',
               amber: '#ff9f0a',
               red: '#ff453a',
-              purple: '#bf5af2'
+              purple: '#bf5af2',
+              indigo: '#5e5ce6'
             }
           }
         }
@@ -108,6 +110,34 @@
       border-width: 0 2px 2px 0;
       transform: rotate(45deg);
       margin-bottom: 2px;
+    }
+    /* macOS Sequoia Native Floating Overlay Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 9999px;
+      border: 1px solid transparent;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.32);
+    }
+    ::-webkit-scrollbar-button {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+    ::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
     }
   </style>
 </head>
@@ -208,12 +238,22 @@
               <span>Evaluation Task Prompt</span>
             </label>
             <div class="flex items-center space-x-2">
-              <span class="text-[11px] text-[#86868b]">AI Judge:</span>
-              <select id="judge-provider" onchange="onJudgeProviderChanged()" class="apple-input text-xs px-2.5 py-1 text-zinc-300">
-                <option value="gemini">Google Gemini (3.5 Flash-Lite / Latest)</option>
-                <option value="openai">OpenAI (gpt-4o-mini)</option>
-                <option value="ollama">Local Ollama (llama3.2 offline)</option>
-              </select>
+              <span class="text-[11px] text-[#86868b] font-medium">AI Judge:</span>
+              <input type="hidden" id="judge-provider" value="gemini">
+              
+              <div class="relative min-w-[240px]" id="dropdown-wrapper-judge">
+                <button type="button" onclick="toggleJudgeDropdown()" id="dropdown-btn-judge" aria-haspopup="listbox" aria-expanded="false" aria-controls="dropdown-menu-judge" class="apple-input w-full flex items-center justify-between px-3 py-1.5 text-xs text-zinc-200 hover:border-white/20 transition">
+                  <span id="selected-judge-text" class="truncate font-medium">Google Gemini (3.5 Flash-Lite / Latest)</span>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-zinc-400 ml-1.5 shrink-0"></i>
+                </button>
+                
+                <!-- Popover Menu -->
+                <div id="dropdown-menu-judge" role="listbox" aria-label="AI Judge Selection" class="hidden absolute right-0 top-full mt-1.5 w-64 z-50 rounded-xl bg-[#1c1c22]/95 backdrop-blur-2xl border border-white/10 p-1 shadow-2xl space-y-0.5">
+                  <div role="option" tabindex="0" onclick="selectJudgeOption('gemini', 'Google Gemini (3.5 Flash-Lite / Latest)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">Google Gemini (3.5 Flash-Lite / Latest)</div>
+                  <div role="option" tabindex="0" onclick="selectJudgeOption('openai', 'OpenAI (gpt-4o-mini)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">OpenAI (gpt-4o-mini)</div>
+                  <div role="option" tabindex="0" onclick="selectJudgeOption('ollama', 'Local Ollama (llama3.2 offline)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">Local Ollama (llama3.2 offline)</div>
+                </div>
+              </div>
             </div>
           </div>
           <textarea id="prompt-input" rows="2" class="apple-input w-full p-3 text-xs leading-relaxed code-font" placeholder="Enter benchmark task prompt..."></textarea>
@@ -316,7 +356,7 @@
           <!-- Top Row: Title + Stats -->
           <div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
             <div class="flex items-center space-x-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-[#bf5af2]"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#30b0c7]"></span>
               <span class="text-xs font-semibold text-white">Candidate B</span>
             </div>
             <div class="flex items-center space-x-1.5 text-[11px] text-[#86868b] code-font">
@@ -338,19 +378,19 @@
 
               <!-- Popover Menu -->
               <div id="dropdown-menu-b" role="listbox" aria-label="Candidate B Model Selection" class="hidden absolute left-0 top-full mt-1.5 w-full z-40 rounded-xl bg-[#1c1c22]/95 backdrop-blur-2xl border border-white/10 p-1 shadow-2xl space-y-0.5">
-                <div role="option" tabindex="0" onclick="selectModelOption('b', 'custom', 'Custom Response (Manual Entry)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white focus:bg-[#bf5af2] focus:text-white outline-none cursor-pointer transition">Custom Response (Manual Entry)</div>
-                <div role="option" tabindex="0" onclick="selectModelOption('b', 'gemini:gemini-3.5-flash', 'Google Gemini 3.5 Flash (Live - Fast)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white focus:bg-[#bf5af2] focus:text-white outline-none cursor-pointer transition">Google Gemini 3.5 Flash (Live - Fast)</div>
-                <div role="option" tabindex="0" onclick="selectModelOption('b', 'gemini:gemini-3.5-flash-lite', 'Google Gemini 3.5 Flash-Lite (Live)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white focus:bg-[#bf5af2] focus:text-white outline-none cursor-pointer transition">Google Gemini 3.5 Flash-Lite (Live)</div>
-                <div role="option" tabindex="0" onclick="selectModelOption('b', 'gemini:gemini-3.8-flash', 'Google Gemini 3.8 Flash (Live)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white focus:bg-[#bf5af2] focus:text-white outline-none cursor-pointer transition">Google Gemini 3.8 Flash (Live)</div>
-                <div role="option" tabindex="0" onclick="selectModelOption('b', 'gemini:gemini-flash-latest', 'Google Gemini Flash Latest (Live)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white focus:bg-[#bf5af2] focus:text-white outline-none cursor-pointer transition">Google Gemini Flash Latest (Live)</div>
-                <div role="option" tabindex="0" onclick="selectModelOption('b', 'openai:gpt-4o-mini', 'OpenAI gpt-4o-mini (Live)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white focus:bg-[#bf5af2] focus:text-white outline-none cursor-pointer transition">OpenAI gpt-4o-mini (Live)</div>
-                <div role="option" tabindex="0" onclick="selectModelOption('b', 'ollama:llama3.2', 'Local Ollama Llama 3.2 (Local)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white focus:bg-[#bf5af2] focus:text-white outline-none cursor-pointer transition">Local Ollama Llama 3.2 (Local)</div>
-                <div role="option" tabindex="0" onclick="selectModelOption('b', 'ollama:qwen2.5', 'Local Ollama Qwen 2.5 (Local)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#bf5af2] hover:text-white focus:bg-[#bf5af2] focus:text-white outline-none cursor-pointer transition">Local Ollama Qwen 2.5 (Local)</div>
+                <div role="option" tabindex="0" onclick="selectModelOption('b', 'custom', 'Custom Response (Manual Entry)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">Custom Response (Manual Entry)</div>
+                <div role="option" tabindex="0" onclick="selectModelOption('b', 'gemini:gemini-3.5-flash', 'Google Gemini 3.5 Flash (Live - Fast)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">Google Gemini 3.5 Flash (Live - Fast)</div>
+                <div role="option" tabindex="0" onclick="selectModelOption('b', 'gemini:gemini-3.5-flash-lite', 'Google Gemini 3.5 Flash-Lite (Live)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">Google Gemini 3.5 Flash-Lite (Live)</div>
+                <div role="option" tabindex="0" onclick="selectModelOption('b', 'gemini:gemini-3.8-flash', 'Google Gemini 3.8 Flash (Live)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">Google Gemini 3.8 Flash (Live)</div>
+                <div role="option" tabindex="0" onclick="selectModelOption('b', 'gemini:gemini-flash-latest', 'Google Gemini Flash Latest (Live)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">Google Gemini Flash Latest (Live)</div>
+                <div role="option" tabindex="0" onclick="selectModelOption('b', 'openai:gpt-4o-mini', 'OpenAI gpt-4o-mini (Live)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">OpenAI gpt-4o-mini (Live)</div>
+                <div role="option" tabindex="0" onclick="selectModelOption('b', 'ollama:llama3.2', 'Local Ollama Llama 3.2 (Local)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">Local Ollama Llama 3.2 (Local)</div>
+                <div role="option" tabindex="0" onclick="selectModelOption('b', 'ollama:qwen2.5', 'Local Ollama Qwen 2.5 (Local)')" class="dropdown-item px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:bg-[#0071e3] hover:text-white focus:bg-[#0071e3] focus:text-white outline-none cursor-pointer transition">Local Ollama Qwen 2.5 (Local)</div>
               </div>
             </div>
 
             <div class="flex items-center space-x-2">
-              <button type="button" onclick="generateCandidate('b')" id="btn-gen-b" class="hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#bf5af2]/20 text-[#bf5af2] hover:bg-[#bf5af2]/30 border border-[#bf5af2]/30 text-xs font-medium transition">
+              <button type="button" onclick="generateCandidate('b')" id="btn-gen-b" class="hidden flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#30b0c7]/15 text-[#30b0c7] hover:bg-[#30b0c7]/25 border border-[#30b0c7]/30 text-xs font-medium transition">
                 <i data-lucide="play" class="w-3 h-3"></i>
                 <span>Generate B</span>
               </button>
@@ -380,23 +420,26 @@
       <div id="results-panel" class="hidden space-y-6 pt-2">
         
         <!-- WINNER HERO CARD (Apple Sequoia Style Inspector) -->
-        <div class="apple-card p-6 border-l-4 border-l-[#0071e3] space-y-4">
+        <div class="apple-card p-6 space-y-4">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <span class="text-[11px] font-semibold uppercase tracking-wider text-[#86868b] block mb-1">Debiased Consensus Verdict</span>
-              <div class="flex items-center space-x-3">
-                <span id="verdict-winner" class="text-xl font-bold tracking-tight text-white">Candidate A Preferred</span>
-                <span id="verdict-confidence" class="px-2.5 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30">95% Confidence</span>
+              <div class="flex flex-wrap items-center gap-3">
+                <span id="verdict-winner" class="text-2xl font-bold tracking-tight text-white">Candidate A Preferred</span>
+                <span id="verdict-confidence" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#38bdf8] border border-[#0071e3]/30">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#0071e3]"></span>
+                  <span>95% Confidence • Decisive Margin</span>
+                </span>
               </div>
             </div>
 
             <!-- Bias Status Badges -->
             <div class="flex flex-wrap items-center gap-2">
-              <div id="positional-bias-badge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20">
+              <div id="positional-bias-badge" class="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20">
                 <i data-lucide="check" class="w-3.5 h-3.5"></i>
                 <span>Order Invariant (A/B = B/A)</span>
               </div>
-              <div id="verbosity-bias-badge" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20">
+              <div id="verbosity-bias-badge" class="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20">
                 <i data-lucide="check" class="w-3.5 h-3.5"></i>
                 <span>Length Calibrated</span>
               </div>
@@ -411,7 +454,7 @@
             </div>
             <p id="tiebreaker-detail-text" class="text-xs text-zinc-300 leading-relaxed"></p>
             <div class="flex flex-wrap items-center gap-3 pt-1">
-              <button onclick="applyRubricTiebreaker()" class="px-3.5 py-1.5 rounded-lg bg-[#ff9f0a] hover:bg-[#ff9f0a]/90 text-black font-semibold text-xs transition shadow-sm flex items-center space-x-1.5">
+              <button onclick="applyRubricTiebreaker()" class="px-3.5 py-1.5 rounded-xl bg-[#ff9f0a] hover:bg-[#ff9f0a]/90 text-black font-semibold text-xs transition shadow-sm flex items-center space-x-1.5">
                 <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
                 <span>Resolve via Rubric Differential (<span id="tiebreaker-btn-cand-name">Candidate B</span> Preferred)</span>
               </button>
@@ -420,9 +463,12 @@
           </div>
 
           <!-- RATIONALE EDITORIAL CARD -->
-          <div class="p-4 rounded-xl bg-black/40 border border-white/[0.06] text-xs text-zinc-300 space-y-1.5">
-            <span class="font-semibold text-[11px] uppercase tracking-wider text-[#86868b] block">LLM-as-a-Judge Step-by-Step Rationale:</span>
-            <p id="verdict-rationale" class="leading-relaxed"></p>
+          <div class="p-4 rounded-xl bg-black/40 border border-white/[0.06] text-xs text-zinc-300 space-y-2">
+            <div class="flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#86868b]">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-zinc-400"></i>
+              <span>Step-by-Step Rationale</span>
+            </div>
+            <p id="verdict-rationale" class="leading-relaxed text-zinc-300"></p>
           </div>
         </div>
 
@@ -461,7 +507,7 @@
                 </div>
               </div>
               <div class="pt-2 border-t border-white/[0.06]">
-                <span class="text-[11px] font-semibold text-[#bf5af2] block mb-1.5">Candidate B Violations:</span>
+                <span class="text-[11px] font-semibold text-[#30b0c7] block mb-1.5">Candidate B Violations:</span>
                 <div id="errors-model-b" class="flex flex-wrap gap-1.5">
                   <span class="text-xs text-zinc-500 italic">None detected</span>
                 </div>
@@ -579,7 +625,7 @@
           </div>
           <div class="p-3.5 rounded-xl bg-black/40 border border-white/5">
             <span class="text-xs text-[#86868b] block mb-1">Model B Win Rate</span>
-            <span id="batch-win-b" class="text-2xl font-bold text-[#bf5af2]">25.0%</span>
+            <span id="batch-win-b" class="text-2xl font-bold text-[#30b0c7]">25.0%</span>
             <span class="text-[10px] text-zinc-500 block mt-0.5">1 of 4 samples</span>
           </div>
           <div class="p-3.5 rounded-xl bg-black/40 border border-white/5">
@@ -730,7 +776,7 @@
       { key: 'safety_harm', name: 'Safety & Harm Prevention', badge: 'P1 • Absolute Veto', color: 'text-[#ff453a]', bg: 'bg-[#ff453a]/10' },
       { key: 'instruction_following', name: 'Instruction Following & Negatives', badge: 'P2 • Hard Compliance', color: 'text-[#ff9f0a]', bg: 'bg-[#ff9f0a]/10' },
       { key: 'factuality', name: 'Factuality & Grounded Reality', badge: 'P3 • Truth Priority', color: 'text-[#0071e3]', bg: 'bg-[#0071e3]/10' },
-      { key: 'reasoning_logic', name: 'Reasoning & Logical Coherence', badge: 'P4 • Causal Logic', color: 'text-[#bf5af2]', bg: 'bg-[#bf5af2]/10' },
+      { key: 'reasoning_logic', name: 'Reasoning & Logical Coherence', badge: 'P4 • Causal Logic', color: 'text-[#5e5ce6]', bg: 'bg-[#5e5ce6]/10' },
       { key: 'style_conciseness', name: 'Style, Tone & Conciseness', badge: 'P5 • Tiebreaker', color: 'text-[#30d158]', bg: 'bg-[#30d158]/10' }
     ];
 
@@ -760,10 +806,16 @@
           if (menuB) menuB.classList.add('hidden');
           if (btnB) btnB.setAttribute('aria-expanded', 'false');
         }
+        if (!e.target.closest('#dropdown-wrapper-judge')) {
+          const menuJ = document.getElementById('dropdown-menu-judge');
+          const btnJ = document.getElementById('dropdown-btn-judge');
+          if (menuJ) menuJ.classList.add('hidden');
+          if (btnJ) btnJ.setAttribute('aria-expanded', 'false');
+        }
       });
 
-      // Keyboard listeners for dropdown menus (UI-02)
-      ['a', 'b'].forEach(cand => {
+      // Keyboard listeners for dropdown menus (UI-02: A, B, and AI Judge)
+      ['a', 'b', 'judge'].forEach(cand => {
         const btn = document.getElementById(`dropdown-btn-${cand}`);
         const menu = document.getElementById(`dropdown-menu-${cand}`);
         if (!btn || !menu) return;
@@ -772,7 +824,8 @@
           if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             if (menu.classList.contains('hidden')) {
-              toggleModelDropdown(cand);
+              if (cand === 'judge') toggleJudgeDropdown();
+              else toggleModelDropdown(cand);
             }
           } else if (e.key === 'Escape') {
             if (!menu.classList.contains('hidden')) {
@@ -817,6 +870,43 @@
       });
     }
 
+    function toggleJudgeDropdown() {
+      const menu = document.getElementById('dropdown-menu-judge');
+      const btn = document.getElementById('dropdown-btn-judge');
+      ['a', 'b'].forEach(cand => {
+        const m = document.getElementById(`dropdown-menu-${cand}`);
+        const b = document.getElementById(`dropdown-btn-${cand}`);
+        if (m) m.classList.add('hidden');
+        if (b) b.setAttribute('aria-expanded', 'false');
+      });
+
+      const isHidden = menu.classList.contains('hidden');
+      if (isHidden) {
+        menu.classList.remove('hidden');
+        btn.setAttribute('aria-expanded', 'true');
+        const firstOpt = menu.querySelector('[role="option"]');
+        if (firstOpt) firstOpt.focus();
+      } else {
+        menu.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+        btn.focus();
+      }
+    }
+
+    function selectJudgeOption(val, label) {
+      document.getElementById('judge-provider').value = val;
+      const textEl = document.getElementById('selected-judge-text');
+      if (textEl) textEl.innerText = label;
+      const menu = document.getElementById('dropdown-menu-judge');
+      const btn = document.getElementById('dropdown-btn-judge');
+      if (menu) menu.classList.add('hidden');
+      if (btn) {
+        btn.setAttribute('aria-expanded', 'false');
+        btn.focus();
+      }
+      onJudgeProviderChanged();
+    }
+
     function toggleModelDropdown(cand) {
       const menu = document.getElementById(`dropdown-menu-${cand}`);
       const btn = document.getElementById(`dropdown-btn-${cand}`);
@@ -825,6 +915,11 @@
       const otherBtn = document.getElementById(`dropdown-btn-${otherCand}`);
       if (otherMenu) otherMenu.classList.add('hidden');
       if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+
+      const judgeMenu = document.getElementById('dropdown-menu-judge');
+      const judgeBtn = document.getElementById('dropdown-btn-judge');
+      if (judgeMenu) judgeMenu.classList.add('hidden');
+      if (judgeBtn) judgeBtn.setAttribute('aria-expanded', 'false');
 
       const isHidden = menu.classList.contains('hidden');
       if (isHidden) {
@@ -1153,55 +1248,51 @@
       const confElement = document.getElementById('verdict-confidence');
       const heroCard = winnerElement.closest('.apple-card');
 
-      heroCard.className = heroCard.className.replace(/border-l-\[\S+\]/g, '');
+      // Strip any legacy border-l classes (Apple design: clean uniform squircle borders)
+      heroCard.className = heroCard.className.replace(/border-l-\S+/g, '').replace(/border-l-\[\S+\]/g, '');
+
+      // Winner text rendered in brilliant crisp white (Apple typography philosophy)
+      winnerElement.className = "text-2xl font-bold tracking-tight text-white";
 
       if (winner === "model_a") {
-        winnerElement.innerText = "Candidate A Preferred";
-        winnerElement.className = "text-xl font-bold tracking-tight text-[#0071e3]";
-        heroCard.classList.add('border-l-4', 'border-l-[#0071e3]');
-        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30";
-        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.charAt(0).toUpperCase() + data.forward_verdict.margin.slice(1)} Preference`;
+        winnerElement.innerText = (data.model_a_name || "Candidate A") + " Preferred";
+        confElement.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#38bdf8] border border-[#0071e3]/30";
+        confElement.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#0071e3]"></span><span>${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.charAt(0).toUpperCase() + data.forward_verdict.margin.slice(1)} Preference</span>`;
         setHumanChoice('model_a');
       } else if (winner === "model_b") {
-        winnerElement.innerText = "Candidate B Preferred";
-        winnerElement.className = "text-xl font-bold tracking-tight text-[#bf5af2]";
-        heroCard.classList.add('border-l-4', 'border-l-[#bf5af2]');
-        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#bf5af2]/15 text-[#bf5af2] border border-[#bf5af2]/30";
-        confElement.innerText = `${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.charAt(0).toUpperCase() + data.forward_verdict.margin.slice(1)} Preference`;
+        winnerElement.innerText = (data.model_b_name || "Candidate B") + " Preferred";
+        confElement.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#30b0c7]/15 text-[#30b0c7] border border-[#30b0c7]/30";
+        confElement.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#30b0c7]"></span><span>${Math.round(data.confidence_score * 100)}% Confidence • ${data.forward_verdict.margin.charAt(0).toUpperCase() + data.forward_verdict.margin.slice(1)} Preference</span>`;
         setHumanChoice('model_b');
       } else if (winner === "tie") {
         winnerElement.innerText = "Equally Rated (Tie)";
-        winnerElement.className = "text-xl font-bold tracking-tight text-[#ff9f0a]";
-        heroCard.classList.add('border-l-4', 'border-l-[#ff9f0a]');
-        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#ff9f0a]/15 text-[#ff9f0a] border border-[#ff9f0a]/30";
-        confElement.innerText = "Equally Balanced Performance";
+        confElement.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#ff9f0a]/15 text-[#ff9f0a] border border-[#ff9f0a]/30";
+        confElement.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#ff9f0a]"></span><span>Equally Balanced Performance</span>`;
         setHumanChoice('tie');
       } else {
         winnerElement.innerText = "Indeterminate (Positional Bias Flip)";
-        winnerElement.className = "text-xl font-bold tracking-tight text-[#ff453a]";
-        heroCard.classList.add('border-l-4', 'border-l-[#ff453a]');
-        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/30";
-        confElement.innerText = "Order Inconsistency Flagged";
+        confElement.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/30";
+        confElement.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#ff453a]"></span><span>Order Inconsistency Flagged</span>`;
         setHumanChoice('indeterminate');
       }
 
-      // Positional Bias Badge
+      // Positional Bias Badge (Capsule)
       const posBadge = document.getElementById('positional-bias-badge');
       if (data.positional_bias_detected) {
-        posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#ff453a]/10 text-[#ff453a] border border-[#ff453a]/20";
+        posBadge.className = "flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#ff453a]/10 text-[#ff453a] border border-[#ff453a]/20";
         posBadge.innerHTML = `<i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i><span>Positional Inconsistency</span>`;
       } else {
-        posBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20";
+        posBadge.className = "flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20";
         posBadge.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Order Invariant (A/B = B/A)</span>`;
       }
 
-      // Verbosity Badge
+      // Verbosity Badge (Capsule)
       const verbBadge = document.getElementById('verbosity-bias-badge');
       if (data.verbosity_bias_flag) {
-        verbBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#ff9f0a]/10 text-[#ff9f0a] border border-[#ff9f0a]/20";
+        verbBadge.className = "flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#ff9f0a]/10 text-[#ff9f0a] border border-[#ff9f0a]/20";
         verbBadge.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i><span>Verbosity Bias Flagged</span>`;
       } else {
-        verbBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20";
+        verbBadge.className = "flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#30d158]/10 text-[#30d158] border border-[#30d158]/20";
         verbBadge.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Length Calibrated</span>`;
       }
 
@@ -1237,14 +1328,14 @@
           <div class="space-y-1.5 p-3 rounded-xl bg-black/40 border border-white/5">
             <div class="flex items-center justify-between text-xs">
               <div class="flex items-center space-x-2">
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${p.color} ${p.bg} border border-white/10">${p.badge}</span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${p.color} ${p.bg} border border-white/10">${p.badge}</span>
                 <span class="font-medium text-zinc-200">${p.name}</span>
               </div>
-              <span class="text-zinc-400 font-mono text-[11px]">A: <b class="text-[#0071e3]">${ds.score_a.toFixed(1)}</b> | B: <b class="text-[#bf5af2]">${ds.score_b.toFixed(1)}</b></span>
+              <span class="text-zinc-400 font-mono text-[11px]">A: <b class="text-[#0071e3]">${ds.score_a.toFixed(1)}</b> | B: <b class="text-[#30b0c7]">${ds.score_b.toFixed(1)}</b></span>
             </div>
             <div class="w-full bg-[#1c1c20] rounded-full h-1.5 overflow-hidden flex">
               <div class="bg-[#0071e3] h-1.5 transition-all" style="width: ${pctA/2}%"></div>
-              <div class="bg-[#bf5af2] h-1.5 transition-all" style="width: ${pctB/2}%"></div>
+              <div class="bg-[#30b0c7] h-1.5 transition-all" style="width: ${pctB/2}%"></div>
             </div>
             <p class="text-[11px] text-zinc-400 leading-snug">${escapeHtml(ds.justification)}</p>
           </div>
@@ -1254,11 +1345,11 @@
       // 3. Error Violations
       const errA = document.getElementById('errors-model-a');
       const errorsListA = data.forward_verdict.detected_errors_model_a || [];
-      errA.innerHTML = errorsListA.length ? errorsListA.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/25">${escapeHtml(e)}</span>`).join('') : '<span class="text-xs text-zinc-500 italic">None detected</span>';
+      errA.innerHTML = errorsListA.length ? errorsListA.map(e => `<span class="px-2 py-0.5 rounded-md text-[10px] bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/25">${escapeHtml(e)}</span>`).join('') : '<span class="text-xs text-zinc-500 italic">None detected</span>';
 
       const errB = document.getElementById('errors-model-b');
       const errorsListB = data.forward_verdict.detected_errors_model_b || [];
-      errB.innerHTML = errorsListB.length ? errorsListB.map(e => `<span class="px-2 py-0.5 rounded text-[10px] bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/25">${escapeHtml(e)}</span>`).join('') : '<span class="text-xs text-zinc-500 italic">None detected</span>';
+      errB.innerHTML = errorsListB.length ? errorsListB.map(e => `<span class="px-2 py-0.5 rounded-md text-[10px] bg-[#ff453a]/15 text-[#ff453a] border border-[#ff453a]/25">${escapeHtml(e)}</span>`).join('') : '<span class="text-xs text-zinc-500 italic">None detected</span>';
 
       // 4. Populate Human Multi-Rubric Audit Grid
       renderHumanAuditStation(scoresMap);
@@ -1276,21 +1367,18 @@
       const confElement = document.getElementById('verdict-confidence');
       const heroCard = winnerElement.closest('.apple-card');
 
-      heroCard.className = heroCard.className.replace(/border-l-\[\S+\]/g, '');
+      heroCard.className = heroCard.className.replace(/border-l-\S+/g, '').replace(/border-l-\[\S+\]/g, '');
+      winnerElement.className = "text-2xl font-bold tracking-tight text-white";
 
       if (cand === 'model_a') {
-        winnerElement.innerText = "Candidate A Preferred (Resolved via Tiebreaker)";
-        winnerElement.className = "text-xl font-bold tracking-tight text-[#0071e3]";
-        heroCard.classList.add('border-l-4', 'border-l-[#0071e3]');
-        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30";
-        confElement.innerText = `60% Confidence • Weak Margin (Positional Variance Flagged)`;
+        winnerElement.innerText = (candName || "Candidate A") + " Preferred (Resolved via Tiebreaker)";
+        confElement.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#0071e3]/15 text-[#38bdf8] border border-[#0071e3]/30";
+        confElement.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#0071e3]"></span><span>Resolved via Rubric Differential</span>`;
         setHumanChoice('model_a');
       } else {
-        winnerElement.innerText = "Candidate B Preferred (Resolved via Tiebreaker)";
-        winnerElement.className = "text-xl font-bold tracking-tight text-[#bf5af2]";
-        heroCard.classList.add('border-l-4', 'border-l-[#bf5af2]');
-        confElement.className = "px-2.5 py-1 rounded-full text-xs font-medium bg-[#bf5af2]/15 text-[#bf5af2] border border-[#bf5af2]/30";
-        confElement.innerText = `60% Confidence • Weak Margin (Positional Variance Flagged)`;
+        winnerElement.innerText = (candName || "Candidate B") + " Preferred (Resolved via Tiebreaker)";
+        confElement.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[#30b0c7]/15 text-[#30b0c7] border border-[#30b0c7]/30";
+        confElement.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#30b0c7]"></span><span>Resolved via Rubric Differential</span>`;
         setHumanChoice('model_b');
       }
 
@@ -1338,7 +1426,7 @@
                 <input type="number" step="0.5" min="1.0" max="5.0" value="${ds.score_a}" onchange="updateHumanRubricScore('${p.key}', 'score_a', this.value)" class="apple-input w-full px-2.5 py-1 text-xs code-font">
               </div>
               <div>
-                <label class="block text-[11px] font-medium text-[#bf5af2] mb-1">Human Score Candidate B (1.0 - 5.0):</label>
+                <label class="block text-[11px] font-medium text-[#30b0c7] mb-1">Human Score Candidate B (1.0 - 5.0):</label>
                 <input type="number" step="0.5" min="1.0" max="5.0" value="${ds.score_b}" onchange="updateHumanRubricScore('${p.key}', 'score_b', this.value)" class="apple-input w-full px-2.5 py-1 text-xs code-font">
               </div>
             </div>
@@ -1386,7 +1474,7 @@
       const selectedBtn = document.getElementById(`btn-choice-${choice}`);
       if (selectedBtn) {
         if (choice === 'model_a') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-[#0071e3] bg-[#0071e3]/15 text-[#0071e3] font-bold text-xs text-center";
-        else if (choice === 'model_b') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-[#bf5af2] bg-[#bf5af2]/15 text-[#bf5af2] font-bold text-xs text-center";
+        else if (choice === 'model_b') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-[#30b0c7] bg-[#30b0c7]/15 text-[#30b0c7] font-bold text-xs text-center";
         else if (choice === 'tie') selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-[#ff9f0a] bg-[#ff9f0a]/15 text-[#ff9f0a] font-bold text-xs text-center";
         else selectedBtn.className = "human-choice-btn py-2 px-3 rounded-xl border border-[#ff453a] bg-[#ff453a]/15 text-[#ff453a] font-bold text-xs text-center";
       }
