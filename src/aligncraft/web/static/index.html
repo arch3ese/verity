@@ -780,23 +780,23 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5" id="batch-metrics-grid">
           <div class="p-3.5 rounded-xl bg-black/40 border border-white/5">
             <span class="text-xs text-[#86868b] block mb-1">Model A Win Rate</span>
-            <span id="batch-win-a" class="text-2xl font-bold text-[#0071e3]">75.0%</span>
-            <span class="text-[10px] text-zinc-500 block mt-0.5">3 of 4 samples</span>
+            <span id="batch-win-a" class="text-2xl font-bold text-[#0071e3]">--</span>
+            <span id="batch-win-a-sub" class="text-[10px] text-zinc-500 block mt-0.5">Ready to evaluate</span>
           </div>
           <div class="p-3.5 rounded-xl bg-black/40 border border-white/5">
             <span class="text-xs text-[#86868b] block mb-1">Model B Win Rate</span>
-            <span id="batch-win-b" class="text-2xl font-bold text-[#30b0c7]">25.0%</span>
-            <span class="text-[10px] text-zinc-500 block mt-0.5">1 of 4 samples</span>
+            <span id="batch-win-b" class="text-2xl font-bold text-[#30b0c7]">--</span>
+            <span id="batch-win-b-sub" class="text-[10px] text-zinc-500 block mt-0.5">Ready to evaluate</span>
           </div>
           <div class="p-3.5 rounded-xl bg-black/40 border border-white/5">
             <span class="text-xs text-[#86868b] block mb-1">Positional Bias Rate</span>
-            <span id="batch-pos-bias" class="text-2xl font-bold text-[#30d158]">0.0%</span>
-            <span class="text-[10px] text-zinc-500 block mt-0.5">Order-invariant</span>
+            <span id="batch-pos-bias" class="text-2xl font-bold text-[#30d158]">--</span>
+            <span id="batch-pos-bias-sub" class="text-[10px] text-zinc-500 block mt-0.5">Order consistency</span>
           </div>
           <div class="p-3.5 rounded-xl bg-black/40 border border-white/5">
             <span class="text-xs text-[#86868b] block mb-1">Cohen's Kappa vs Truth</span>
-            <span id="batch-kappa" class="text-2xl font-bold text-[#30d158]">1.000</span>
-            <span class="text-[10px] text-zinc-500 block mt-0.5">Consensus Agreement</span>
+            <span id="batch-kappa" class="text-2xl font-bold text-[#30d158]">--</span>
+            <span id="batch-kappa-sub" class="text-[10px] text-zinc-500 block mt-0.5">Inter-rater agreement</span>
           </div>
         </div>
 
@@ -806,11 +806,12 @@
             <thead class="bg-black/60 text-[#86868b] uppercase text-[10px] tracking-wider border-b border-white/[0.08]">
               <tr>
                 <th class="p-3">Scenario ID</th>
-                <th class="p-3">Focus</th>
+                <th class="p-3">Focus / Category</th>
                 <th class="p-3">Candidate A</th>
                 <th class="p-3">Candidate B</th>
                 <th class="p-3">Consensus Winner</th>
                 <th class="p-3">Bias Status</th>
+                <th class="p-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody id="benchmark-table-body" class="divide-y divide-white/[0.06]">
@@ -1861,21 +1862,210 @@
       }
     }
 
-    function populateBenchmarkTable() {
+    let lastBenchmarkEvaluations = null;
+
+    async function populateBenchmarkTable() {
+      if (lastBenchmarkEvaluations) {
+        return; // Retain evaluated benchmark results
+      }
+      if (!globalPresets || globalPresets.length === 0) {
+        await loadPresets();
+      }
       const tbody = document.getElementById('benchmark-table-body');
+      if (!tbody) return;
       tbody.innerHTML = '';
       globalPresets.forEach((p, i) => {
+        const category = (p.sample && p.sample.metadata && p.sample.metadata.category) || 'General';
+        const formattedCat = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const groundWinner = p.sample.human_preferred === 'model_a' ? 'Candidate A (Truth)' : (p.sample.human_preferred === 'model_b' ? 'Candidate B (Truth)' : (p.sample.human_preferred === 'tie' ? 'Tie (Truth)' : 'Indeterminate'));
+
         tbody.innerHTML += `
           <tr class="hover:bg-white/[0.02] transition">
             <td class="p-3 font-mono text-[#0071e3] text-xs">${escapeHtml(p.sample.id)}</td>
-            <td class="p-3 font-medium text-white">${escapeHtml(p.sample.metadata.category || 'Constraint Test')}</td>
+            <td class="p-3">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/[0.06] text-zinc-300 border border-white/5">${escapeHtml(formattedCat)}</span>
+            </td>
             <td class="p-3 text-zinc-300">${escapeHtml(p.model_a_name)}</td>
             <td class="p-3 text-zinc-300">${escapeHtml(p.model_b_name)}</td>
-            <td class="p-3 font-semibold text-[#30d158]">${escapeHtml(p.sample.human_preferred === 'model_a' ? 'Model A' : (p.sample.human_preferred === 'model_b' ? 'Model B' : (p.sample.human_preferred === 'tie' ? 'Tie' : 'Indeterminate')))}</td>
-            <td class="p-3 text-[#30d158]"><span class="inline-flex items-center gap-1">Order-Invariant <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span></td>
+            <td class="p-3 text-zinc-400 font-medium">${escapeHtml(groundWinner)}</td>
+            <td class="p-3 text-zinc-500"><span class="inline-flex items-center gap-1 text-[11px]">Ready to evaluate</span></td>
+            <td class="p-3 text-right">
+              <button onclick="inspectBenchmarkInReviewer(${i})" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-white/[0.06] hover:bg-white/[0.12] text-zinc-300 hover:text-white transition inline-flex items-center gap-1.5 ml-auto">
+                <span>Inspect</span>
+                <i data-lucide="arrow-right" class="w-3 h-3"></i>
+              </button>
+            </td>
           </tr>
         `;
       });
+      lucide.createIcons();
+    }
+
+    async function runBatchBenchmark() {
+      const btn = document.getElementById('run-batch-btn');
+      const origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Running Benchmark Suite...</span>`;
+      lucide.createIcons();
+
+      const provider = document.getElementById('judge-provider') ? document.getElementById('judge-provider').value : 'gemini';
+      let apiKey = null;
+      let modelName = 'gemini-3.8-flash';
+      let baseUrl = null;
+
+      if (provider === 'gemini') {
+        apiKey = localStorage.getItem('gemini_api_key');
+        modelName = 'gemini-3.8-flash';
+      } else if (provider === 'openai') {
+        apiKey = localStorage.getItem('openai_api_key');
+        modelName = 'gpt-4o-mini';
+      } else if (provider === 'ollama') {
+        baseUrl = localStorage.getItem('ollama_url') || 'http://localhost:11434';
+        modelName = localStorage.getItem('ollama_model') || 'llama3.2';
+      }
+
+      try {
+        const res = await fetch('/api/benchmark/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: provider,
+            model_name: modelName,
+            api_key: apiKey,
+            base_url: baseUrl,
+            use_human_calibration: true
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Benchmark execution failed: ${err.detail || 'Unknown server error'}`);
+          return;
+        }
+
+        const data = await res.json();
+        lastBenchmarkEvaluations = data.evaluations;
+        renderBenchmarkResults(data);
+      } catch (err) {
+        console.error('Benchmark execution error:', err);
+        alert('Benchmark request failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        lucide.createIcons();
+      }
+    }
+
+    function renderBenchmarkResults(data) {
+      const summary = data.summary;
+      const evaluations = data.evaluations || [];
+      const samples = data.samples || globalPresets;
+
+      const total = summary.total_samples || evaluations.length || 1;
+      const winRateA = ((summary.model_a_wins / total) * 100).toFixed(1);
+      const winRateB = ((summary.model_b_wins / total) * 100).toFixed(1);
+      const posBiasRate = ((summary.positional_bias_rate || 0) * 100).toFixed(1);
+      
+      let kappaStr = "--";
+      let kappaSub = "Low sample warning";
+      if (summary.cohens_kappa_vs_human !== null && summary.cohens_kappa_vs_human !== undefined && !isNaN(summary.cohens_kappa_vs_human)) {
+        const k = summary.cohens_kappa_vs_human;
+        kappaStr = k.toFixed(3);
+        if (k >= 0.8) kappaSub = "Near-Perfect Consensus";
+        else if (k >= 0.6) kappaSub = "Substantial Agreement";
+        else if (k >= 0.4) kappaSub = "Moderate Agreement";
+        else if (k >= 0.2) kappaSub = "Fair Agreement";
+        else kappaSub = "Slight / Low Agreement";
+      }
+
+      const winAEl = document.getElementById('batch-win-a');
+      const winASub = document.getElementById('batch-win-a-sub');
+      if (winAEl) winAEl.innerText = `${winRateA}%`;
+      if (winASub) winASub.innerText = `${summary.model_a_wins} of ${total} scenarios`;
+
+      const winBEl = document.getElementById('batch-win-b');
+      const winBSub = document.getElementById('batch-win-b-sub');
+      if (winBEl) winBEl.innerText = `${winRateB}%`;
+      if (winBSub) winBSub.innerText = `${summary.model_b_wins} of ${total} scenarios`;
+
+      const biasEl = document.getElementById('batch-pos-bias');
+      const biasSub = document.getElementById('batch-pos-bias-sub');
+      if (biasEl) biasEl.innerText = `${posBiasRate}%`;
+      if (biasSub) biasSub.innerText = summary.positional_bias_rate === 0 ? "100% Order-invariant" : `${Math.round(summary.positional_bias_rate * total)} biased samples`;
+
+      const kappaEl = document.getElementById('batch-kappa');
+      const kappaSubEl = document.getElementById('batch-kappa-sub');
+      if (kappaEl) kappaEl.innerText = kappaStr;
+      if (kappaSubEl) kappaSubEl.innerText = kappaSub;
+
+      const tbody = document.getElementById('benchmark-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      samples.forEach((p, i) => {
+        const ev = evaluations[i];
+        const category = (p.sample && p.sample.metadata && p.sample.metadata.category) || 'General';
+        const formattedCat = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+        let winnerHtml = `<span class="text-zinc-500">Pending</span>`;
+        let biasHtml = `<span class="text-zinc-500">--</span>`;
+
+        if (ev) {
+          const winner = ev.final_consensus_winner;
+          const conf = Math.round((ev.confidence_score || 0.85) * 100);
+          if (winner === 'model_a') {
+            winnerHtml = `<span class="inline-flex items-center gap-1.5 font-semibold text-[#0071e3]"><span class="w-1.5 h-1.5 rounded-full bg-[#0071e3]"></span>Candidate A <span class="text-[10px] font-normal text-zinc-400">(${conf}%)</span></span>`;
+          } else if (winner === 'model_b') {
+            winnerHtml = `<span class="inline-flex items-center gap-1.5 font-semibold text-[#30b0c7]"><span class="w-1.5 h-1.5 rounded-full bg-[#30b0c7]"></span>Candidate B <span class="text-[10px] font-normal text-zinc-400">(${conf}%)</span></span>`;
+          } else if (winner === 'tie') {
+            winnerHtml = `<span class="inline-flex items-center gap-1.5 font-semibold text-[#ff9f0a]"><span class="w-1.5 h-1.5 rounded-full bg-[#ff9f0a]"></span>Tie</span>`;
+          } else {
+            winnerHtml = `<span class="inline-flex items-center gap-1.5 font-semibold text-[#ff453a]"><span class="w-1.5 h-1.5 rounded-full bg-[#ff453a]"></span>Indeterminate</span>`;
+          }
+
+          if (ev.positional_bias_detected) {
+            biasHtml = `<span class="inline-flex items-center gap-1 text-[#ff453a] font-medium"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg> Positional Bias</span>`;
+          } else {
+            biasHtml = `<span class="inline-flex items-center gap-1 text-[#30d158] font-medium"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Order-Invariant</span>`;
+          }
+        }
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-white/[0.02] transition">
+            <td class="p-3 font-mono text-[#0071e3] text-xs">${escapeHtml(p.sample.id)}</td>
+            <td class="p-3">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/[0.06] text-zinc-300 border border-white/5">${escapeHtml(formattedCat)}</span>
+            </td>
+            <td class="p-3 text-zinc-300">${escapeHtml(p.model_a_name)}</td>
+            <td class="p-3 text-zinc-300">${escapeHtml(p.model_b_name)}</td>
+            <td class="p-3">${winnerHtml}</td>
+            <td class="p-3">${biasHtml}</td>
+            <td class="p-3 text-right">
+              <button onclick="inspectBenchmarkInReviewer(${i})" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-white/[0.06] hover:bg-white/[0.12] text-zinc-300 hover:text-white transition inline-flex items-center gap-1.5 ml-auto">
+                <span>Inspect</span>
+                <i data-lucide="arrow-right" class="w-3 h-3"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function inspectBenchmarkInReviewer(idx) {
+      loadPreset(idx);
+      switchTab('reviewer');
+      if (lastBenchmarkEvaluations && lastBenchmarkEvaluations[idx]) {
+        currentEvaluation = lastBenchmarkEvaluations[idx];
+        displayEvaluationResults(lastBenchmarkEvaluations[idx]);
+        const panel = document.getElementById('results-panel');
+        if (panel) {
+          panel.classList.remove('hidden');
+          panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
 
     function openApiKeyModal() {

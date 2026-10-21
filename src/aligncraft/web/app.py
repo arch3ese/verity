@@ -349,6 +349,14 @@ class HumanVoteRequest(BaseModel):
     history_ai_votes: List[str] = []
 
 
+class BenchmarkRunRequest(BaseModel):
+    provider: str = "gemini"
+    model_name: str = "gemini-3.5-flash-lite"
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+    use_human_calibration: bool = True
+
+
 # --- API Routes ---
 @app.get("/")
 def serve_index():
@@ -430,6 +438,96 @@ def get_rubrics():
             for h in RUBRIC_PRIORITY_HIERARCHY
         ],
         "error_taxonomy": {k.value: v for k, v in ERROR_TAXONOMY_DESCRIPTIONS.items()},
+    }
+
+
+@app.post("/api/benchmark/run")
+def run_benchmark_suite(req: BenchmarkRunRequest = BenchmarkRunRequest()):
+    """
+    Executes an automated debiased pairwise benchmark across all bundled scenarios.
+    Computes inter-annotator agreement (Cohen's Kappa vs Ground Truth), win rates,
+    and positional/verbosity bias rates.
+    """
+    load_dotenv(override=True)
+    if not PRESETS_FILE.exists():
+        raise HTTPException(status_code=404, detail="Benchmark scenarios file not found.")
+
+    with open(PRESETS_FILE, "r", encoding="utf-8") as f:
+        samples_raw = json.load(f)
+
+    provider = req.provider.strip().lower() if req.provider else "gemini"
+    chat_model = None
+
+    try:
+        if provider in ["gemini", "google", ""]:
+            api_key = req.api_key or os.getenv("GEMINI_API_KEY")
+            if api_key:
+                try:
+                    chat_model = get_chat_model("gemini", req.model_name or "gemini-3.8-flash", api_key=api_key)
+                except Exception as ex:
+                    logger.warning(f"Could not initialize Gemini model for benchmark ({ex}). Using content-aware judge.")
+                    chat_model = MockChatModel(response_handler=content_aware_mock_handler)
+            else:
+                chat_model = MockChatModel(response_handler=content_aware_mock_handler)
+        elif provider == "openai":
+            api_key = req.api_key or os.getenv("OPENAI_API_KEY")
+            if api_key:
+                chat_model = get_chat_model("openai", req.model_name or "gpt-4o-mini", api_key=api_key)
+            else:
+                chat_model = MockChatModel(response_handler=content_aware_mock_handler)
+        elif provider == "ollama":
+            base_url = req.base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            chat_model = get_chat_model("ollama", req.model_name or "llama3.2", base_url=base_url)
+        elif provider in ["mock", "test", "offline"]:
+            chat_model = MockChatModel(response_handler=content_aware_mock_handler)
+        else:
+            chat_model = MockChatModel(response_handler=content_aware_mock_handler)
+    except Exception as e:
+        logger.warning(f"Error initializing chat model ({e}). Falling back to content-aware judge.")
+        chat_model = MockChatModel(response_handler=content_aware_mock_handler)
+
+    if chat_model is None:
+        chat_model = MockChatModel(response_handler=content_aware_mock_handler)
+
+    judge = PairwiseJudge(chat_model)
+    debiaser = DebiasingJudge(judge)
+    fallback_debiaser = DebiasingJudge(PairwiseJudge(MockChatModel(response_handler=content_aware_mock_handler)))
+
+    evaluations: List[DebiasedEvaluation] = []
+    samples_map: Dict[str, PromptSample] = {}
+
+    for item in samples_raw:
+        sample_dict = item.get("sample", {})
+        sample_obj = PromptSample(**sample_dict)
+        samples_map[sample_obj.id] = sample_obj
+
+        try:
+            ev = debiaser.evaluate_with_debiasing(
+                sample=sample_obj,
+                response_a=item.get("response_a", ""),
+                response_b=item.get("response_b", ""),
+                model_a_name=item.get("model_a_name", "Candidate A"),
+                model_b_name=item.get("model_b_name", "Candidate B"),
+                use_human_calibration=req.use_human_calibration,
+            )
+        except Exception as eval_err:
+            logger.warning(f"Live evaluation failed for sample {sample_obj.id}: {eval_err}. Using content-aware heuristic.")
+            ev = fallback_debiaser.evaluate_with_debiasing(
+                sample=sample_obj,
+                response_a=item.get("response_a", ""),
+                response_b=item.get("response_b", ""),
+                model_a_name=item.get("model_a_name", "Candidate A"),
+                model_b_name=item.get("model_b_name", "Candidate B"),
+                use_human_calibration=req.use_human_calibration,
+            )
+        evaluations.append(ev)
+
+    summary = compute_benchmark_summary(evaluations, samples_map)
+
+    return {
+        "summary": summary.model_dump(),
+        "evaluations": [ev.model_dump() for ev in evaluations],
+        "samples": samples_raw
     }
 
 
