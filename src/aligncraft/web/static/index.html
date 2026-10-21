@@ -300,6 +300,24 @@
       opacity: 0.92;
       filter: blur(20px);
     }
+
+    /* Gentle Optical Starburst Breathing (Optics-True Pulsation) */
+    @keyframes aiSparklePulse {
+      0%, 100% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 2px rgba(90, 200, 250, 0.4));
+        opacity: 0.88;
+      }
+      50% {
+        transform: scale(1.18);
+        filter: drop-shadow(0 0 7px rgba(90, 200, 250, 0.95));
+        opacity: 1;
+      }
+    }
+
+    .ai-sparkle-pulse {
+      animation: aiSparklePulse 1.8s ease-in-out infinite;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-[#0071e3]/30">
@@ -712,7 +730,7 @@
 
             <div>
               <label class="block text-xs font-semibold text-zinc-300 mb-2">3. Lead Annotator Gold-Standard Rationale (Required for Overrides):</label>
-              <textarea id="human-rationale-input" rows="2" oninput="autoResizeTextarea(this)" class="apple-input w-full p-2.5 text-xs text-zinc-200 resize-none" placeholder="Explain the decisive factors, errors spotted, and why this candidate was preferred..."></textarea>
+              <textarea id="human-rationale-input" rows="3" oninput="autoResizeTextarea(this)" class="apple-input w-full p-3 text-xs leading-relaxed text-zinc-200 resize-none min-h-[84px]" placeholder="Explain the decisive factors, errors spotted, and why this candidate was preferred..."></textarea>
             </div>
           </div>
 
@@ -924,15 +942,22 @@
 
     function autoResizeTextarea(el) {
       if (!el) return;
+      // Do not resize hidden elements (scrollHeight is 0 when parent is display:none)
+      if (el.scrollHeight <= 0 || (el.offsetWidth === 0 && el.offsetHeight === 0)) return;
       el.style.height = 'auto';
-      el.style.height = (el.scrollHeight + 2) + 'px';
+      const minH = (el.id === 'human-rationale-input') ? 84 : 36;
+      el.style.height = Math.max(el.scrollHeight + 2, minH) + 'px';
     }
 
     function autoResizeAllInputs() {
-      ['prompt-input', 'constraints-input', 'ground-truth-input', 'response-a-input', 'response-b-input', 'human-rationale-input'].forEach(id => {
+      ['prompt-input', 'constraints-input', 'ground-truth-input', 'response-a-input', 'response-b-input'].forEach(id => {
         const el = document.getElementById(id);
         if (el) autoResizeTextarea(el);
       });
+      const rationale = document.getElementById('human-rationale-input');
+      if (rationale && rationale.offsetParent !== null) {
+        autoResizeTextarea(rationale);
+      }
     }
 
     async function init() {
@@ -1324,7 +1349,7 @@
 
       const provider = document.getElementById('judge-provider').value;
       let elapsed = 0;
-      btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4 text-cyan-300 animate-spin"></i><span>Evaluating Consensus...</span>`;
+      btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4 text-cyan-300 ai-sparkle-pulse"></i><span>Evaluating Consensus...</span>`;
       statusMsg.innerText = `Evaluating dual passes (A vs B & B vs A) via ${provider}... (0s)`;
       lucide.createIcons();
 
@@ -1405,6 +1430,11 @@
 
     function displayEvaluationResults(data) {
       document.getElementById('results-panel').classList.remove('hidden');
+      const rationaleInput = document.getElementById('human-rationale-input');
+      if (rationaleInput) {
+        rationaleInput.style.height = '84px';
+        autoResizeTextarea(rationaleInput);
+      }
 
       const winner = data.final_consensus_winner;
       const winnerElement = document.getElementById('verdict-winner');
@@ -1760,8 +1790,17 @@
         const container = document.getElementById('rubrics-cards-container');
         container.innerHTML = '';
 
+        const dimTitles = {
+          safety_harm: "Safety Harm",
+          instruction_following: "Instruction Following",
+          factuality: "Factuality",
+          reasoning_logic: "Reasoning Logic",
+          style_conciseness: "Style & Conciseness"
+        };
+
         (data.rubric_hierarchy || []).forEach(h => {
           const info = data.rubric_criteria[h.dimension] || {};
+          const title = dimTitles[h.dimension] || h.dimension.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
           container.innerHTML += `
             <div class="apple-card p-5 space-y-3.5 flex flex-col justify-between">
               <div class="space-y-2">
@@ -1769,7 +1808,7 @@
                   <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide bg-[#0071e3]/15 text-[#38bdf8] border border-[#0071e3]/30">Priority ${escapeHtml(h.priority)}</span>
                   <span class="text-[11px] text-[#86868b] font-medium tracking-tight">${escapeHtml(h.tier_name)}</span>
                 </div>
-                <h3 class="font-bold text-white text-sm tracking-tight">${escapeHtml(h.dimension.toUpperCase().replace(/_/g, ' '))}</h3>
+                <h3 class="font-bold text-white text-sm tracking-tight">${escapeHtml(title)}</h3>
                 <p class="text-xs text-zinc-200 leading-relaxed">${escapeHtml(h.rule)}</p>
                 ${info.description ? `<p class="text-[11px] text-[#86868b] leading-relaxed">${escapeHtml(info.description)}</p>` : ''}
               </div>
