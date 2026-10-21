@@ -41,3 +41,4 @@ eval_results/
 data/exports/
 *.jsonl
 *.log
+*.diff
