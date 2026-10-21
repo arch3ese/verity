@@ -8,7 +8,7 @@ import math
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
-from aligncraft.schemas.models import (
+from verity.schemas.models import (
     BenchmarkSummary,
     DebiasedEvaluation,
     PreferenceChoice,

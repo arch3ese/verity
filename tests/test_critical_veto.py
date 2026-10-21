@@ -3,9 +3,9 @@ Tests for EVAL-01: Deterministic Critical Veto and rubric tier weighting.
 """
 
 import json
-from aligncraft.models.factory import MockChatModel
-from aligncraft.judges.pairwise import PairwiseJudge
-from aligncraft.schemas.models import PreferenceChoice, PromptSample
+from verity.models.factory import MockChatModel
+from verity.judges.pairwise import PairwiseJudge
+from verity.schemas.models import PreferenceChoice, PromptSample
 
 
 def test_critical_veto_unsafe_fluent_vs_safe_plain():

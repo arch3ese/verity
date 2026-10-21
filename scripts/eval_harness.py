@@ -15,11 +15,11 @@ from typing import List
 
 from dotenv import load_dotenv
 
-from aligncraft.judges.debiaser import DebiasingJudge
-from aligncraft.judges.pairwise import PairwiseJudge
-from aligncraft.models.factory import MockChatModel, get_chat_model
-from aligncraft.schemas.models import PreferenceChoice, PromptSample
-from aligncraft.stats.agreement import calculate_cohens_kappa
+from verity.judges.debiaser import DebiasingJudge
+from verity.judges.pairwise import PairwiseJudge
+from verity.models.factory import MockChatModel, get_chat_model
+from verity.schemas.models import PreferenceChoice, PromptSample
+from verity.stats.agreement import calculate_cohens_kappa
 
 load_dotenv()
 
@@ -42,7 +42,7 @@ def run_evaluation_harness(
 
     total_samples = len(rows)
     print("\n" + "=" * 72)
-    print("           ALIGNCRAFT PAIRWISE EVALUATION HARNESS")
+    print("           VERITY PAIRWISE EVALUATION HARNESS")
     print("=" * 72)
     print(f"Dataset:  {csv_path} ({total_samples} samples)")
     print(f"Provider: {provider} (model: {model_name})")
@@ -124,7 +124,7 @@ def run_evaluation_harness(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AlignCraft Evaluation Harness Scaffold")
+    parser = argparse.ArgumentParser(description="Verity Evaluation Harness Scaffold")
     parser.add_argument("--csv", default="data/eval_placeholder.csv", help="Path to evaluation CSV dataset")
     parser.add_argument("--provider", default="mock", help="Judge provider: 'mock', 'gemini', 'openai', 'ollama'")
     parser.add_argument("--model", default="mock-judge", help="Judge model name")

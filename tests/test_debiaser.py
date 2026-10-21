@@ -1,11 +1,11 @@
 """Unit tests for the Debiasing Engine (Positional Swapping & Verbosity Checks)."""
 
 import json
-from aligncraft.alignment.guidelines import GuidelineBank
-from aligncraft.judges.debiaser import DebiasingJudge
-from aligncraft.judges.pairwise import PairwiseJudge
-from aligncraft.models.factory import MockChatModel
-from aligncraft.schemas.models import (
+from verity.alignment.guidelines import GuidelineBank
+from verity.judges.debiaser import DebiasingJudge
+from verity.judges.pairwise import PairwiseJudge
+from verity.models.factory import MockChatModel
+from verity.schemas.models import (
     DimensionScore,
     PairwiseVerdict,
     PreferenceChoice,
@@ -471,7 +471,7 @@ def test_tie_reconciled_when_dimension_score_diff_exists():
 
 def test_human_ground_truth_calibration_overrides_tie():
     """Verify that submitting a human audit and enabling calibration overrides an AI tie on that exact prompt."""
-    from aligncraft.alignment.guidelines import GuidelineBank
+    from verity.alignment.guidelines import GuidelineBank
     calib_prompt = "Explain why the sky appears blue during daytime."
     GuidelineBank.add_human_override_guideline(
         prompt=calib_prompt,
@@ -515,7 +515,7 @@ def test_human_ground_truth_calibration_overrides_tie():
 
 def test_calibration_override_preserves_candidate_identity_and_not_in_pairwise():
     """Verify that human calibration tracks candidate identity, not slot position, and evaluate_pair does not hard-override."""
-    from aligncraft.alignment.guidelines import GuidelineBank
+    from verity.alignment.guidelines import GuidelineBank
     prompt = "Identity tracking test prompt"
     response_good = "High quality factual response."
     response_bad = "Low quality hallucinatory response."
@@ -571,7 +571,7 @@ def test_pairwise_judge_reverse_pass_does_not_invert_winner():
     and unconditionally set winner = MODEL_A, even when called with reversed inputs (where
     slot A was physically the inferior candidate).
     """
-    from aligncraft.alignment.guidelines import GuidelineBank
+    from verity.alignment.guidelines import GuidelineBank
     prompt = "Behavioral COR-02 Test Prompt"
     GuidelineBank.add_human_override_guideline(
         prompt=prompt,
@@ -601,7 +601,7 @@ def test_pairwise_judge_reverse_pass_does_not_invert_winner():
 
 def test_identical_responses_with_human_override_evaluates_to_tie():
     """Verify that if both candidates submit identical text, calibration yields TIE rather than preferring slot A."""
-    from aligncraft.alignment.guidelines import GuidelineBank
+    from verity.alignment.guidelines import GuidelineBank
     prompt = "Identical response test prompt"
     identical_text = "The quick brown fox jumps over the lazy dog."
 
@@ -649,7 +649,7 @@ def test_unordered_pair_calibration_matching_and_no_fallback():
     - Stored tie (X, Y) -> explicit TIE
     - Identical candidates (X, X) -> explicit TIE
     """
-    from aligncraft.alignment.guidelines import GuidelineBank
+    from verity.alignment.guidelines import GuidelineBank
     prompt = "Unordered pair calibration test prompt"
     resp_x = "Response X: Detailed high-quality explanation."
     resp_y = "Response Y: Flawed low-quality explanation."
@@ -759,7 +759,7 @@ def test_narrow_candidate_text_matching_rules():
     - 'Yes' and 'yes' do NOT match (case preserved).
     - Trailing newline and \r\n differences DO match.
     """
-    from aligncraft.alignment.guidelines import GuidelineBank
+    from verity.alignment.guidelines import GuidelineBank
     prompt = "Indentation and case sensitivity test prompt"
 
     code_stored_pref = "def compute():\n    return 42"

@@ -7,7 +7,7 @@ datasets compatible with Hugging Face TRL (DPOTrainer) and PyTorch pipelines.
 import json
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from aligncraft.schemas.models import (
+from verity.schemas.models import (
     DebiasedEvaluation,
     DPOTriplet,
     PreferenceChoice,

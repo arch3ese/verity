@@ -1,5 +1,5 @@
 """
-Command-Line Interface (CLI) for AlignCraft:
+Command-Line Interface (CLI) for Verity:
 Supports running benchmarks, debiased evaluations, annotator audits, and DPO dataset export.
 """
 
@@ -11,22 +11,22 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from aligncraft.exporters.dpo_exporter import DPOExporter
-from aligncraft.judges.debiaser import DebiasingJudge
-from aligncraft.judges.pairwise import PairwiseJudge
-from aligncraft.models.factory import get_chat_model
-from aligncraft.rubrics.definitions import ERROR_TAXONOMY_DESCRIPTIONS, RUBRIC_CRITERIA
-from aligncraft.runner import EvaluationRunner
-from aligncraft.schemas.models import (
+from verity.exporters.dpo_exporter import DPOExporter
+from verity.judges.debiaser import DebiasingJudge
+from verity.judges.pairwise import PairwiseJudge
+from verity.models.factory import get_chat_model
+from verity.rubrics.definitions import ERROR_TAXONOMY_DESCRIPTIONS, RUBRIC_CRITERIA
+from verity.runner import EvaluationRunner
+from verity.schemas.models import (
     DebiasedEvaluation,
     PreferenceChoice,
     PromptSample,
     RatingDimension,
 )
-from aligncraft.stats.agreement import compute_benchmark_summary
+from verity.stats.agreement import compute_benchmark_summary
 
 app = typer.Typer(
-    name="aligncraft",
+    name="verity",
     help="Enterprise RLHF & AI Training Evaluation Engine with LLM Judge Debiasing.",
     add_completion=False,
 )
@@ -38,21 +38,21 @@ def ui(
     host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host address to bind"),
     port: int = typer.Option(8000, "--port", "-p", help="Port number"),
 ):
-    """Launch the interactive AlignCraft Studio Web UI."""
+    """Launch the interactive Verity Studio Web UI."""
     console.print(Panel.fit(
-        f"[bold cyan]Launching AlignCraft Studio[/bold cyan]\n"
+        f"[bold cyan]Launching Verity Studio[/bold cyan]\n"
         f"Server running at: [bold green]http://{host}:{port}[/bold green]\n"
         f"Press [yellow]Ctrl+C[/yellow] to stop.",
-        title="AlignCraft Web Studio",
+        title="Verity Web Studio",
     ))
-    from aligncraft.web.app import start_server
+    from verity.web.app import start_server
     start_server(host=host, port=port)
 
 
 @app.command()
 def rubrics():
     """Display the RLHF multi-dimensional rubrics and error taxonomy."""
-    console.print(Panel.fit("[bold cyan]AlignCraft RLHF Evaluation Rubrics[/bold cyan]"))
+    console.print(Panel.fit("[bold cyan]Verity RLHF Evaluation Rubrics[/bold cyan]"))
 
     rubric_table = Table(title="Evaluation Dimensions & Scoring Criteria", show_header=True)
     rubric_table.add_column("Dimension", style="bold yellow", width=22)
@@ -198,7 +198,7 @@ def _display_single_evaluation(ev: DebiasedEvaluation):
 
 
 def _display_benchmark_summary(summary, evaluations):
-    table = Table(title="[bold yellow]AlignCraft Benchmark Summary[/bold yellow]", show_header=True)
+    table = Table(title="[bold yellow]Verity Benchmark Summary[/bold yellow]", show_header=True)
     table.add_column("Metric", style="bold cyan")
     table.add_column("Value", style="bold white")
 

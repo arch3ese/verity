@@ -2,9 +2,9 @@
 
 import json
 import pytest
-from aligncraft.judges.pairwise import JudgeParseError, PairwiseJudge
-from aligncraft.models.factory import MockChatModel
-from aligncraft.schemas.models import PreferenceChoice, PromptSample
+from verity.judges.pairwise import JudgeParseError, PairwiseJudge
+from verity.models.factory import MockChatModel
+from verity.schemas.models import PreferenceChoice, PromptSample
 
 
 SAMPLE = PromptSample(id="test-1", prompt="Write a haiku about nature.")

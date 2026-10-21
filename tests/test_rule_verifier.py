@@ -2,7 +2,7 @@
 Unit tests for deterministic programmatic verifier (RuleVerifier).
 """
 
-from aligncraft.judges.rule_verifier import RuleVerifier
+from verity.judges.rule_verifier import RuleVerifier
 
 
 def test_letter_negation_detection():
@@ -183,7 +183,7 @@ def test_word_count_emoji_and_standalone_symbols():
     """
     Task E5: Non-alphanumeric emojis and standalone symbols must not be counted as words.
     """
-    from aligncraft.judges.rule_verifier import _calculate_word_count
+    from verity.judges.rule_verifier import _calculate_word_count
 
     # "Hello world! 😃 🌟 - ... 123" -> words are "Hello", "world!", "123" (count = 3)
     text = "Hello world! 😃 🌟 - ... 123"

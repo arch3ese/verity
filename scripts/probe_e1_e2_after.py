@@ -1,4 +1,4 @@
-from aligncraft.judges.rule_verifier import RuleVerifier, _split_into_sentences
+from verity.judges.rule_verifier import RuleVerifier, _split_into_sentences
 
 probes_e1 = [
     (1, "Write a haiku about rain without using the letter 'e'.", "DET [forbidden letter e]"),

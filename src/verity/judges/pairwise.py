@@ -12,12 +12,12 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import ValidationError
 
-logger = logging.getLogger("aligncraft.judges.pairwise")
+logger = logging.getLogger("verity.judges.pairwise")
 
-from aligncraft.rubrics.definitions import format_rubric_prompt
-from aligncraft.judges.rule_verifier import LIGATURE_FOLD_MAP, RuleVerifier
-from aligncraft.alignment.guidelines import GuidelineBank
-from aligncraft.schemas.models import (
+from verity.rubrics.definitions import format_rubric_prompt
+from verity.judges.rule_verifier import LIGATURE_FOLD_MAP, RuleVerifier
+from verity.alignment.guidelines import GuidelineBank
+from verity.schemas.models import (
     DimensionScore,
     ErrorTag,
     PairwiseVerdict,

@@ -1,8 +1,8 @@
-"""Tests for the AlignCraft Web API and Human Annotator Audit Station."""
+"""Tests for the Verity Web API and Human Annotator Audit Station."""
 
 import pytest
 from fastapi.testclient import TestClient
-from aligncraft.web.app import app
+from verity.web.app import app
 
 client = TestClient(app)
 

@@ -143,7 +143,7 @@ class GuidelineBank:
     def find_exact_prompt_override(cls, prompt: str) -> Optional[Dict[str, Any]]:
         """
         Searches for an active human annotator override strictly matching the normalized prompt.
-        Note: AlignCraft currently uses exact normalized matching for ground-truth overrides
+        Note: Verity currently uses exact normalized matching for ground-truth overrides
         and recency-based sampling for exemplars. Semantic embedding-based retrieval is not
         currently implemented.
         """

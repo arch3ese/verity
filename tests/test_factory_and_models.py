@@ -2,7 +2,7 @@
 
 import os
 import pytest
-from aligncraft.models.factory import get_chat_model, ResilientChatModel
+from verity.models.factory import get_chat_model, ResilientChatModel
 from langchain_core.messages import HumanMessage
 from langchain_core.outputs import ChatResult, ChatGeneration
 from langchain_core.language_models.chat_models import BaseChatModel

@@ -1,4 +1,4 @@
-from aligncraft.judges.rule_verifier import RuleVerifier, _split_into_sentences
+from verity.judges.rule_verifier import RuleVerifier, _split_into_sentences
 
 probes_e1 = [
     (1, "Write a haiku about rain without using the letter 'e'.", "DET [forbidden letter e]"),
@@ -31,7 +31,7 @@ probes_e1 = [
 ]
 
 print("=== APPENDIX 1: HELD-OUT CONSTRAINT EXTRACTION PROBES (BEFORE) ===")
-# In AlignCraft, constraints passed to verifier can be either the constraints list or extracted from prompt
+# In Verity, constraints passed to verifier can be either the constraints list or extracted from prompt
 # Let's test candidate audit where prompt is passed as constraint
 for idx, text, expected in probes_e1:
     rep = RuleVerifier.audit_candidate("Dummy test response.", [text], "")

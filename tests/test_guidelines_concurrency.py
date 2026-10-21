@@ -3,7 +3,7 @@
 import json
 import threading
 from pathlib import Path
-from aligncraft.alignment.guidelines import GuidelineBank
+from verity.alignment.guidelines import GuidelineBank
 
 
 def test_concurrent_guideline_writes_no_data_loss(tmp_path, monkeypatch):
@@ -28,7 +28,7 @@ def test_concurrent_guideline_writes_no_data_loss(tmp_path, monkeypatch):
     with open(test_file, "w", encoding="utf-8") as f:
         json.dump(initial_data, f, indent=2)
 
-    monkeypatch.setattr("aligncraft.alignment.guidelines.GUIDELINES_FILE", test_file)
+    monkeypatch.setattr("verity.alignment.guidelines.GUIDELINES_FILE", test_file)
 
     num_threads = 20
     errors = []

@@ -2,7 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from aligncraft.web.app import app
+from verity.web.app import app
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def test_sanitized_500_errors_do_not_leak_internal_details(client, monkeypatch):
     # Monkeypatch DebiasingJudge to throw an internal error containing a simulated sensitive credential
     secret_leak = "FATAL_SECRET_DB_PASSWD_xyz987"
 
-    from aligncraft.judges.debiaser import DebiasingJudge
+    from verity.judges.debiaser import DebiasingJudge
 
     def broken_evaluate(self, *args, **kwargs):
         raise RuntimeError(f"Database crash: {secret_leak}")

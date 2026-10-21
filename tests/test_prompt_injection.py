@@ -3,9 +3,9 @@ Tests for SEC-02: Prompt injection boundary tags, sanitization, and post-hoc fac
 """
 
 import json
-from aligncraft.models.factory import MockChatModel
-from aligncraft.judges.pairwise import PairwiseJudge
-from aligncraft.schemas.models import PreferenceChoice, PromptSample, RatingDimension
+from verity.models.factory import MockChatModel
+from verity.judges.pairwise import PairwiseJudge
+from verity.schemas.models import PreferenceChoice, PromptSample, RatingDimension
 
 
 def test_prompt_injection_sanitization_in_candidate_text():

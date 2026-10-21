@@ -1,11 +1,11 @@
 """Unit tests for rubric definitions and prompt formatting."""
 
-from aligncraft.rubrics.definitions import (
+from verity.rubrics.definitions import (
     ERROR_TAXONOMY_DESCRIPTIONS,
     RUBRIC_CRITERIA,
     format_rubric_prompt,
 )
-from aligncraft.schemas.models import ErrorTag, RatingDimension
+from verity.schemas.models import ErrorTag, RatingDimension
 
 
 def test_rubric_criteria_completeness():

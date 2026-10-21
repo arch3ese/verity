@@ -3,11 +3,11 @@ Tests for Task 2.7: Human override vs deterministic veto conflict detection.
 """
 
 import json
-from aligncraft.alignment.guidelines import GuidelineBank
-from aligncraft.models.factory import MockChatModel
-from aligncraft.judges.debiaser import DebiasingJudge
-from aligncraft.judges.pairwise import PairwiseJudge
-from aligncraft.schemas.models import PreferenceChoice, PromptSample
+from verity.alignment.guidelines import GuidelineBank
+from verity.models.factory import MockChatModel
+from verity.judges.debiaser import DebiasingJudge
+from verity.judges.pairwise import PairwiseJudge
+from verity.schemas.models import PreferenceChoice, PromptSample
 
 
 def test_human_override_with_veto_conflict_sets_flag_and_reason():

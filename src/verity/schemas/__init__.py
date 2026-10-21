@@ -1,6 +1,6 @@
-"""Schema exports for AlignCraft."""
+"""Schema exports for Verity."""
 
-from aligncraft.schemas.models import (
+from verity.schemas.models import (
     BenchmarkSummary,
     DebiasedEvaluation,
     DimensionScore,

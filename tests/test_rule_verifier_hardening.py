@@ -4,7 +4,7 @@ word counting (hyphenation, emoji, CJK), and input size guard.
 """
 
 import unicodedata
-from aligncraft.judges.rule_verifier import RuleVerifier, CandidateVerificationReport
+from verity.judges.rule_verifier import RuleVerifier, CandidateVerificationReport
 
 
 def test_sentence_splitting_decimals_abbreviations_ellipses_quotes():

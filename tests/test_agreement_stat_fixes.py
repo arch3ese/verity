@@ -2,7 +2,7 @@
 
 import math
 import pytest
-from aligncraft.stats.agreement import (
+from verity.stats.agreement import (
     MIN_SAMPLE_SIZE,
     calculate_cohens_kappa,
 )

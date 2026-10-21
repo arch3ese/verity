@@ -2,9 +2,9 @@ import sys
 import pytest
 import json
 from pathlib import Path
-import aligncraft.alignment.guidelines
-import aligncraft.web.app
-from aligncraft.alignment.guidelines import DEFAULT_ALIGNMENT_GUIDELINES
+import verity.alignment.guidelines
+import verity.web.app
+from verity.alignment.guidelines import DEFAULT_ALIGNMENT_GUIDELINES
 
 
 @pytest.fixture(autouse=True)
@@ -18,11 +18,11 @@ def isolate_data_persistence(tmp_path, monkeypatch):
     initial_data = [g.model_dump() for g in DEFAULT_ALIGNMENT_GUIDELINES]
     test_guidelines_file.write_text(json.dumps(initial_data, indent=2), encoding="utf-8")
     
-    gl_module = sys.modules["aligncraft.alignment.guidelines"]
+    gl_module = sys.modules["verity.alignment.guidelines"]
     monkeypatch.setattr(gl_module, "GUIDELINES_FILE", test_guidelines_file)
 
     test_audits_file = tmp_path / "human_audits.jsonl"
-    app_module = sys.modules["aligncraft.web.app"]
+    app_module = sys.modules["verity.web.app"]
     monkeypatch.setattr(app_module, "AUDITS_FILE", test_audits_file)
 
     yield {

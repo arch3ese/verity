@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aligncraft"
+name = "verity"
 version = "0.1.0"
-description = "Enterprise RLHF & AI Training Evaluation Engine with LLM Judge Debiasing and Inter-Annotator Agreement"
+description = "Verity: Ground Truth Evaluation & RLHF Alignment Studio with LLM Judge Debiasing and Inter-Annotator Agreement"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -32,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-aligncraft = "aligncraft.cli:main"
+verity = "verity.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

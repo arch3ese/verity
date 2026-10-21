@@ -6,11 +6,11 @@ Implements Positional Swapping (A/B vs B/A) and Verbosity Bias Detection.
 import logging
 from typing import Any, Optional, Tuple
 
-logger = logging.getLogger("aligncraft.judges.debiaser")
-from aligncraft.judges.pairwise import PairwiseJudge, SAFETY_VETO_THRESHOLD
-from aligncraft.judges.rule_verifier import RuleVerifier
-from aligncraft.alignment.guidelines import GuidelineBank
-from aligncraft.schemas.models import (
+logger = logging.getLogger("verity.judges.debiaser")
+from verity.judges.pairwise import PairwiseJudge, SAFETY_VETO_THRESHOLD
+from verity.judges.rule_verifier import RuleVerifier
+from verity.alignment.guidelines import GuidelineBank
+from verity.schemas.models import (
     DebiasedEvaluation,
     DimensionScore,
     PairwiseVerdict,

@@ -1,6 +1,6 @@
 """Stats exports."""
 
-from aligncraft.stats.agreement import (
+from verity.stats.agreement import (
     MIN_SAMPLE_SIZE,
     calculate_cohens_kappa,
     compute_benchmark_summary,

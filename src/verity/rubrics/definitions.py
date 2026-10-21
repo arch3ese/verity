@@ -4,7 +4,7 @@ industry standards (Scale AI, Outlier, Anthropic Constitutional AI, OpenAI Model
 """
 
 from typing import Dict
-from aligncraft.schemas.models import RatingDimension, ErrorTag
+from verity.schemas.models import RatingDimension, ErrorTag
 
 RUBRIC_CRITERIA: Dict[RatingDimension, Dict[str, str]] = {
     RatingDimension.INSTRUCTION_FOLLOWING: {

@@ -1,8 +1,8 @@
-"""Unit tests for AlignCraft data schemas and Pydantic models."""
+"""Unit tests for Verity data schemas and Pydantic models."""
 
 import pytest
 from pydantic import ValidationError
-from aligncraft.schemas.models import (
+from verity.schemas.models import (
     DimensionScore,
     DPOTriplet,
     ErrorTag,

@@ -1,5 +1,5 @@
 """
-End-to-end Demonstration Script for AlignCraft:
+End-to-end Demonstration Script for Verity:
 Loads benchmark samples, evaluates candidate completions with positional debiasing,
 computes Cohen's Kappa against human ground truth, and exports curated DPO training data.
 """
@@ -8,20 +8,20 @@ import json
 from pathlib import Path
 from rich.console import Console
 
-from aligncraft.exporters.dpo_exporter import DPOExporter
-from aligncraft.judges.debiaser import DebiasingJudge
-from aligncraft.judges.pairwise import PairwiseJudge
-from aligncraft.models.factory import get_chat_model
-from aligncraft.runner import EvaluationRunner
-from aligncraft.schemas.models import PromptSample
-from aligncraft.stats.agreement import compute_benchmark_summary
+from verity.exporters.dpo_exporter import DPOExporter
+from verity.judges.debiaser import DebiasingJudge
+from verity.judges.pairwise import PairwiseJudge
+from verity.models.factory import get_chat_model
+from verity.runner import EvaluationRunner
+from verity.schemas.models import PromptSample
+from verity.stats.agreement import compute_benchmark_summary
 
 console = Console()
 
 
 def run_demo():
     console.print("[bold cyan]=====================================================[/bold cyan]")
-    console.print("[bold green]       AlignCraft: RLHF & AI Training Evaluation      [/bold green]")
+    console.print("[bold green]       Verity: RLHF & AI Training Evaluation      [/bold green]")
     console.print("[bold cyan]=====================================================[/bold cyan]\n")
 
     # 1. Load benchmark dataset

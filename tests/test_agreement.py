@@ -1,13 +1,13 @@
 """Unit tests for statistical Inter-Annotator Agreement (Cohen's Kappa)."""
 
 import pytest
-from aligncraft.schemas.models import (
+from verity.schemas.models import (
     DebiasedEvaluation,
     PairwiseVerdict,
     PreferenceChoice,
     PromptSample,
 )
-from aligncraft.stats.agreement import (
+from verity.stats.agreement import (
     calculate_cohens_kappa,
     compute_benchmark_summary,
 )

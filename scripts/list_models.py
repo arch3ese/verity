@@ -1,6 +1,6 @@
 """
 Script to list models available to the configured Google Gemini API key
-and compare them against the model IDs in aligncraft/models/factory.py.
+and compare them against the model IDs in verity/models/factory.py.
 """
 
 import os

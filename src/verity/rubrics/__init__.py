@@ -1,6 +1,6 @@
 """Rubric exports."""
 
-from aligncraft.rubrics.definitions import (
+from verity.rubrics.definitions import (
     ERROR_TAXONOMY_DESCRIPTIONS,
     RUBRIC_CRITERIA,
     format_rubric_prompt,

@@ -5,10 +5,10 @@ Verifies that when an LLM judge hallucinates character-in-word attribution
 hallucination, logs telemetry warnings, and corrects the justification text.
 """
 
-from aligncraft.judges.pairwise import PairwiseJudge, _audit_and_sanitize_attribution_hallucinations
-from aligncraft.models.factory import MockChatModel
-from aligncraft.judges.rule_verifier import CandidateVerificationReport
-from aligncraft.schemas.models import (
+from verity.judges.pairwise import PairwiseJudge, _audit_and_sanitize_attribution_hallucinations
+from verity.models.factory import MockChatModel
+from verity.judges.rule_verifier import CandidateVerificationReport
+from verity.schemas.models import (
     PreferenceChoice,
     PromptSample,
     RatingDimension,

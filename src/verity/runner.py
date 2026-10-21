@@ -9,15 +9,15 @@ from typing import Callable, Dict, List, Optional
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
-from aligncraft.judges.debiaser import DebiasingJudge
-from aligncraft.judges.pairwise import PairwiseJudge
-from aligncraft.schemas.models import (
+from verity.judges.debiaser import DebiasingJudge
+from verity.judges.pairwise import PairwiseJudge
+from verity.schemas.models import (
     BenchmarkSummary,
     DebiasedEvaluation,
     ModelOutput,
     PromptSample,
 )
-from aligncraft.stats.agreement import compute_benchmark_summary
+from verity.stats.agreement import compute_benchmark_summary
 
 console = Console()
 

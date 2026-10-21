@@ -5,7 +5,7 @@ Tests for frontend template sanitization and XSS prevention (SEC-01).
 from pathlib import Path
 import pytest
 
-INDEX_HTML_PATH = Path(__file__).parents[1] / "src" / "aligncraft" / "web" / "static" / "index.html"
+INDEX_HTML_PATH = Path(__file__).parents[1] / "src" / "verity" / "web" / "static" / "index.html"
 
 
 def test_dynamic_interpolations_are_escaped():

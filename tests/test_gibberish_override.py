@@ -3,9 +3,9 @@ Test for Task 2.6: Gibberish winner override test covering surviving mutation MU
 """
 
 import json
-from aligncraft.models.factory import MockChatModel
-from aligncraft.judges.pairwise import PairwiseJudge
-from aligncraft.schemas.models import ErrorTag, PreferenceChoice, PromptSample, RatingDimension
+from verity.models.factory import MockChatModel
+from verity.judges.pairwise import PairwiseJudge
+from verity.schemas.models import ErrorTag, PreferenceChoice, PromptSample, RatingDimension
 
 
 def test_gibberish_winner_override_overturns_hallucinated_win():

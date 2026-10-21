@@ -3,7 +3,7 @@
 from pathlib import Path
 import pytest
 
-INDEX_HTML_PATH = Path(__file__).parents[1] / "src" / "aligncraft" / "web" / "static" / "index.html"
+INDEX_HTML_PATH = Path(__file__).parents[1] / "src" / "verity" / "web" / "static" / "index.html"
 
 
 def test_no_raw_checkmark_glyphs_in_index_html():

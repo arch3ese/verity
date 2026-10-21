@@ -1,22 +1,22 @@
-# AlignCraft: LLM Judge Debiasing, Rubric Alignment & Dataset Exporter
+# Verity: LLM Judge Debiasing, Rubric Alignment & Dataset Exporter
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-v0.3+-green.svg)](https://www.langchain.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **A research and evaluation toolkit for LLM-as-a-judge debiasing, programmatic constraint verification, human annotator calibration, and DPO training dataset export.**
+> **A research and evaluation studio for LLM-as-a-judge debiasing, programmatic constraint verification, human annotator calibration, and DPO training dataset export.**
 
 ---
 
 ## ⚠️ Security Notice & Operational Scope
 
-**No Authentication:** AlignCraft Studio and its FastAPI backend are designed for local evaluation, CI testing, and offline researcher workflows. The server includes **no built-in user authentication, role-based access control, or rate limiting**. Do not expose this server to the public Internet without an authenticating reverse proxy (e.g., NGINX, Cloudflare Access) and TLS encryption.
+**No Authentication:** Verity Studio and its FastAPI backend are designed for local evaluation, CI testing, and offline researcher workflows. The server includes **no built-in user authentication, role-based access control, or rate limiting**. Do not expose this server to the public Internet without an authenticating reverse proxy (e.g., NGINX, Cloudflare Access) and TLS encryption.
 
-**Judge Accuracy Disclaimer:** AlignCraft's judge and debiasing engine have **not been benchmarked against standard public leaderboards** (such as MT-Bench, AlpacaEval, or LMSYS Chatbot Arena). The framework implements defensive mechanisms against known judge pathologies (positional preference, verbosity inflation, negative constraint tokenization blindness), but real-world accuracy depends heavily on the underlying model and task domain.
+**Judge Accuracy Disclaimer:** Verity's judge and debiasing engine have **not been benchmarked against standard public leaderboards** (such as MT-Bench, AlpacaEval, or LMSYS Chatbot Arena). The framework implements defensive mechanisms against known judge pathologies (positional preference, verbosity inflation, negative constraint tokenization blindness), but real-world accuracy depends heavily on the underlying model and task domain.
 
 ---
 
-## 🎯 What AlignCraft Solves
+## 🎯 What Verity Solves
 
 LLM-as-a-judge pipelines are notoriously vulnerable to subtle biases:
 1. **Positional Bias (First-Position Effect):** Judges systematically favor whichever candidate is presented first in the prompt.
@@ -24,7 +24,7 @@ LLM-as-a-judge pipelines are notoriously vulnerable to subtle biases:
 3. **Tokenization Blindness:** LLMs struggle to enforce negative constraints (e.g. *"do not use the letter 'e'"*) or count-based formatting because BPE tokenizers split words into multi-letter subwords.
 4. **Style Hallucination:** Eloquent phrasing frequently tricks judges into overlooking factual inaccuracies.
 
-AlignCraft combines **programmatic neuro-symbolic verification** (regex, lipogram analysis, length tracking) with **dual-order presentation swapping** ($A \text{ vs } B$ and $B \text{ vs } A$) and **hierarchical 5-tier rubrics** to detect and flag these failure modes.
+Verity combines **programmatic neuro-symbolic verification** (regex, lipogram analysis, length tracking) with **dual-order presentation swapping** ($A \text{ vs } B$ and $B \text{ vs } A$) and **hierarchical 5-tier rubrics** to detect and flag these failure modes.
 
 ---
 
@@ -97,7 +97,7 @@ Evaluates candidates across 5 standardized dimensions:
 
 ## 📡 REST API Reference
 
-AlignCraft Studio runs as a FastAPI service on port 8000:
+Verity Studio runs as a FastAPI service on port 8000:
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -111,6 +111,7 @@ AlignCraft Studio runs as a FastAPI service on port 8000:
 | `POST` | `/api/vote` | Records a quick human vote and returns updated agreement rate. |
 | `POST` | `/api/audit` | Submits a senior human rubric audit, appends calibration guideline, and exports DPO triplet. |
 | `POST` | `/api/agreement` | Computes live Cohen's Kappa score between annotator votes and AI judge votes. |
+| `POST` | `/api/benchmark/run` | Runs the automated debiased benchmark suite across all scenarios and returns agreement metrics. |
 
 ---
 
@@ -118,8 +119,8 @@ AlignCraft Studio runs as a FastAPI service on port 8000:
 
 ### 1. Installation
 ```bash
-git clone https://github.com/yourusername/aligncraft.git
-cd aligncraft
+git clone https://github.com/arch3ese/verity.git
+cd verity
 
 # Create virtual environment
 python -m venv .venv
@@ -145,18 +146,19 @@ OPENAI_API_KEY=your_openai_api_key_here
 # Local Provider
 OLLAMA_BASE_URL=http://localhost:11434
 
-# AlignCraft Configuration (Optional)
-ALIGN_DEFAULT_MODEL=gemini-3.5-flash-lite
-ALIGN_FALLBACK_MODELS=gemini-flash-lite-latest,gemini-3.8-flash
-ALIGN_TEMPERATURE=0.0
-ALIGN_MAX_PROMPT_LENGTH=50000
-ALIGN_MAX_RESPONSE_LENGTH=100000
-ALIGN_CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+# Verity Configuration (Optional)
+VERITY_DEFAULT_MODEL=gemini-3.8-flash
+VERITY_FALLBACK_MODELS=gemini-flash-latest,gemini-3.5-flash-lite
+VERITY_TEMPERATURE=0.0
+VERITY_MAX_PROMPT_LENGTH=50000
+VERITY_MAX_RESPONSE_LENGTH=100000
+VERITY_CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
 ```
+*(Legacy `ALIGN_*` environment variables are also automatically supported for backwards compatibility).*
 
 ### 3. Launch Web Studio
 ```bash
-aligncraft ui
+verity ui
 ```
 Open [http://localhost:8000](http://localhost:8000) in your browser.
 
@@ -166,12 +168,12 @@ Open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ### View Rubrics and Taxonomy
 ```bash
-aligncraft rubrics
+verity rubrics
 ```
 
 ### Run an Instant Pairwise Audit
 ```bash
-aligncraft audit \
+verity audit \
   --prompt "What is 13 * 17?" \
   --model-a "13 * 17 = 221" \
   --model-b "13 * 17 = 231" \
@@ -181,7 +183,7 @@ aligncraft audit \
 
 ### Batch Benchmark Execution & DPO Export
 ```bash
-aligncraft benchmark \
+verity benchmark \
   --dataset examples/sample_prompts.json \
   --provider mock \
   --model mock-judge \
@@ -203,7 +205,7 @@ Run the full automated test suite (including unit tests, concurrency tests, and 
 pytest -v
 ```
 
-Test coverage includes:
+Test coverage includes 96 passing tests:
 - **`test_agreement.py` & `test_agreement_stat_fixes.py`:** Unweighted, linear, and quadratic Cohen's Kappa, zero-variance handling, sample size warnings.
 - **`test_factory_and_models.py`:** Model ID configurability, temperature parameter forwarding, 404 error handling.
 - **`test_guidelines_concurrency.py`:** 20-thread concurrent writes with atomic temp-file replace and zero data loss.
@@ -219,12 +221,12 @@ Test coverage includes:
 ## 📂 Project Structure
 
 ```text
-delightful-maxwell/
+verity/
 ├── pyproject.toml              # Package build configuration & metadata
 ├── requirements.txt            # Python dependencies
 ├── README.md                   # Documentation, API reference, & known limitations
 ├── .env.example                # Environment variable configuration template
-├── src/aligncraft/
+├── src/verity/
 │   ├── alignment/              # GuidelineBank (few-shot exemplars & atomic writes)
 │   ├── exporters/              # DPO triplet export for fine-tuning
 │   ├── judges/                 # Pairwise judge, RuleVerifier, & DebiasingJudge
@@ -238,7 +240,7 @@ delightful-maxwell/
 ├── scripts/
 │   ├── list_models.py          # Google GenAI model discovery & ID resolution audit
 │   └── eval_harness.py         # CSV evaluation harness scaffold
-├── tests/                      # Full pytest test suite (89+ tests)
+├── tests/                      # Full pytest test suite (96 tests)
 ├── data/                       # Guidelines & export files
 └── examples/                   # Sample prompts & demo script
 ```

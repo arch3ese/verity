@@ -1,7 +1,7 @@
 """Unit tests for the In-Context Alignment Guidelines Bank."""
 
 import pytest
-from aligncraft.alignment.guidelines import GuidelineBank, AlignmentGuideline
+from verity.alignment.guidelines import GuidelineBank, AlignmentGuideline
 
 
 def test_guideline_bank_initialization():

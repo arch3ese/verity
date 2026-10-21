@@ -1,15 +1,15 @@
 import json
 import pytest
-from aligncraft.schemas.models import (
+from verity.schemas.models import (
     PromptSample,
     PairwiseVerdict,
     PreferenceChoice,
     RatingDimension,
     DimensionScore,
 )
-from aligncraft.judges.rule_verifier import RuleVerifier
-from aligncraft.judges.pairwise import PairwiseJudge, _sanitize_candidate_text
-from aligncraft.models.factory import MockChatModel
+from verity.judges.rule_verifier import RuleVerifier
+from verity.judges.pairwise import PairwiseJudge, _sanitize_candidate_text
+from verity.models.factory import MockChatModel
 
 
 def test_guard_0_anti_overfit_real_prompt_lipogram():

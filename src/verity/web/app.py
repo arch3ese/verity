@@ -15,18 +15,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from aligncraft.alignment.guidelines import GuidelineBank
-from aligncraft.exporters.dpo_exporter import DPOExporter
-from aligncraft.judges.debiaser import DebiasingJudge
-from aligncraft.judges.pairwise import PairwiseJudge
-from aligncraft.models.factory import MockChatModel, get_chat_model
-from aligncraft.rubrics.definitions import (
+from verity.alignment.guidelines import GuidelineBank
+from verity.exporters.dpo_exporter import DPOExporter
+from verity.judges.debiaser import DebiasingJudge
+from verity.judges.pairwise import PairwiseJudge
+from verity.models.factory import MockChatModel, get_chat_model
+from verity.rubrics.definitions import (
     ERROR_TAXONOMY_DESCRIPTIONS,
     RUBRIC_CRITERIA,
     RUBRIC_PRIORITY_HIERARCHY,
 )
-from aligncraft.runner import EvaluationRunner
-from aligncraft.schemas.models import (
+from verity.runner import EvaluationRunner
+from verity.schemas.models import (
     MAX_PROMPT_LENGTH,
     MAX_RESPONSE_LENGTH,
     DebiasedEvaluation,
@@ -37,11 +37,11 @@ from aligncraft.schemas.models import (
     PromptSample,
     RatingDimension,
 )
-from aligncraft.stats.agreement import calculate_cohens_kappa, compute_benchmark_summary
+from verity.stats.agreement import calculate_cohens_kappa, compute_benchmark_summary
 
 load_dotenv()
 
-logger = logging.getLogger("aligncraft.web.app")
+logger = logging.getLogger("verity.web.app")
 
 app = FastAPI(
     title="Verity Studio API",
@@ -50,8 +50,7 @@ app = FastAPI(
 )
 
 # Configurable explicit CORS origins (API-03: wildcard + credentials disallowed)
-raw_cors = os.getenv(
-    "ALIGN_CORS_ORIGINS",
+raw_cors = os.getenv("VERITY_CORS_ORIGINS") or os.getenv("ALIGN_CORS_ORIGINS") or (
     "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:3000"
 )
 ALLOWED_CORS_ORIGINS = [o.strip() for o in raw_cors.split(",") if o.strip()]
@@ -884,4 +883,4 @@ def calculate_agreement(req: HumanVoteRequest):
 def start_server(host: str = "127.0.0.1", port: int = 8000):
     """CLI helper to launch the uvicorn web server."""
     import uvicorn
-    uvicorn.run("aligncraft.web.app:app", host=host, port=port, reload=False)
+    uvicorn.run("verity.web.app:app", host=host, port=port, reload=False)

@@ -53,7 +53,7 @@ class MockChatModel(BaseChatModel):
 
 import logging
 
-logger = logging.getLogger("aligncraft.models.factory")
+logger = logging.getLogger("verity.models.factory")
 
 
 class ResilientChatModel(BaseChatModel):
@@ -149,19 +149,19 @@ def get_chat_model(
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         # Target model: Configurable via ALIGN_DEFAULT_MODEL or ALIGN_GEMINI_MODEL, default gemini-3.5-flash-lite
-        default_model = os.getenv("ALIGN_DEFAULT_MODEL") or os.getenv("ALIGN_GEMINI_MODEL") or "gemini-3.5-flash-lite"
+        default_model = os.getenv("VERITY_DEFAULT_MODEL") or os.getenv("ALIGN_DEFAULT_MODEL") or os.getenv("VERITY_GEMINI_MODEL") or os.getenv("ALIGN_GEMINI_MODEL") or "gemini-3.5-flash-lite"
         target_model = model_name if model_name and model_name.strip() else default_model
 
         # Temperature handling (MOD-02): forward explicitly, with optional ALIGN_TEMPERATURE env override
         effective_temp = temperature
-        if os.getenv("ALIGN_TEMPERATURE") is not None:
+        if os.getenv("VERITY_TEMPERATURE") or os.getenv("ALIGN_TEMPERATURE") is not None:
             try:
-                effective_temp = float(os.getenv("ALIGN_TEMPERATURE"))
+                effective_temp = float(os.getenv("VERITY_TEMPERATURE") or os.getenv("ALIGN_TEMPERATURE"))
             except ValueError:
                 pass
 
         max_retries = kwargs.pop("max_retries", 1)
-        default_timeout = float(os.getenv("ALIGN_TIMEOUT", "60.0"))
+        default_timeout = float(os.getenv("VERITY_TIMEOUT") or os.getenv("ALIGN_TIMEOUT", "60.0"))
         timeout = kwargs.pop("timeout", default_timeout)
 
         # Build primary model (forward temperature to ChatGoogleGenerativeAI)
@@ -175,7 +175,7 @@ def get_chat_model(
         )
 
         # Build fallback model pool: configurable via ALIGN_FALLBACK_MODELS
-        env_fallbacks = os.getenv("ALIGN_FALLBACK_MODELS")
+        env_fallbacks = os.getenv("VERITY_FALLBACK_MODELS") or os.getenv("ALIGN_FALLBACK_MODELS")
         if env_fallbacks is not None:
             raw_names = [f.strip() for f in env_fallbacks.split(",") if f.strip() and f.strip().lower() not in ["none", "false", "0"]]
         else:
