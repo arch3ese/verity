@@ -119,23 +119,27 @@
     textarea {
       resize: none !important;
     }
-    /* macOS Sequoia Native Floating Overlay Scrollbar */
+    /* ========================================================= */
+    /* macOS Sequoia Native Inset Floating Overlay Scrollbars    */
+    /* ========================================================= */
     ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+      width: 14px;
+      height: 14px;
     }
     ::-webkit-scrollbar-track {
       background: transparent !important;
-      margin-top: 8px;
-      margin-bottom: 8px;
+      margin-block: 8px;
     }
     ::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.16);
+      background-color: rgba(255, 255, 255, 0.22);
+      background-clip: padding-box;
       border-radius: 9999px;
-      border: 1px solid transparent;
+      border: 4px solid transparent;
+      border-right-width: 6px;
+      border-bottom-width: 6px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.32);
+      background-color: rgba(255, 255, 255, 0.45);
     }
     ::-webkit-scrollbar-button,
     ::-webkit-scrollbar-button:start,
@@ -159,8 +163,142 @@
     @supports (-moz-appearance: none) {
       * {
         scrollbar-width: thin;
-        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
       }
+    }
+
+    /* ========================================================= */
+    /* Apple Intelligence Flowing Iridescent Glow & Refraction   */
+    /* ========================================================= */
+    @property --ai-glow-angle {
+      syntax: '<angle>';
+      inherits: false;
+      initial-value: 0deg;
+    }
+
+    @keyframes aiGlowRotate {
+      0% {
+        --ai-glow-angle: 0deg;
+      }
+      100% {
+        --ai-glow-angle: 360deg;
+      }
+    }
+
+    @keyframes aiPulseBreath {
+      0%, 100% {
+        opacity: 0.55;
+        filter: blur(14px);
+        transform: scale(0.98);
+      }
+      50% {
+        opacity: 0.85;
+        filter: blur(20px);
+        transform: scale(1.02);
+      }
+    }
+
+    .ai-button-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      padding: 1.5px;
+      isolation: isolate;
+      transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    /* Ambient Diffuse Aura (Apple Intelligence chromatic glow) */
+    .ai-button-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 9999px;
+      background: conic-gradient(
+        from var(--ai-glow-angle),
+        #2997ff,
+        #5ac8fa,
+        #a855f7,
+        #ec4899,
+        #ff9500,
+        #30d158,
+        #2997ff
+      );
+      filter: blur(16px);
+      opacity: 0.6;
+      z-index: -2;
+      animation: aiGlowRotate 6s linear infinite, aiPulseBreath 4s ease-in-out infinite;
+      transition: opacity 0.3s ease, filter 0.3s ease;
+    }
+
+    .ai-button-wrap:hover::before {
+      opacity: 0.95;
+      filter: blur(22px);
+    }
+
+    /* Crisp Iridescent Perimeter Ring */
+    .ai-button-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background: conic-gradient(
+        from var(--ai-glow-angle),
+        #2997ff 0%,
+        #5ac8fa 18%,
+        #a855f7 40%,
+        #ec4899 65%,
+        #ff9500 82%,
+        #2997ff 100%
+      );
+      z-index: -1;
+      animation: aiGlowRotate 6s linear infinite;
+    }
+
+    /* Cupertino Dark Obsidian Glass Interior */
+    .ai-button {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding: 0.75rem 2.25rem;
+      border-radius: 9999px;
+      background: linear-gradient(180deg, rgba(22, 22, 28, 0.96) 0%, rgba(12, 12, 16, 0.98) 100%);
+      color: #ffffff;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      border: none;
+      cursor: pointer;
+      z-index: 1;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.22), inset 0 -1px 1px rgba(0, 0, 0, 0.6);
+      transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+      user-select: none;
+    }
+
+    .ai-button:hover {
+      background: linear-gradient(180deg, rgba(28, 28, 36, 0.96) 0%, rgba(16, 16, 22, 0.98) 100%);
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.32), inset 0 -1px 1px rgba(0, 0, 0, 0.6);
+    }
+
+    .ai-button:active {
+      transform: scale(0.98);
+    }
+
+    .ai-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.9;
+    }
+
+    /* Active evaluation inference mode: rapid neural swirl */
+    .ai-button-wrap.is-evaluating::before,
+    .ai-button-wrap.is-evaluating::after {
+      animation-duration: 2s;
+    }
+    .ai-button-wrap.is-evaluating::before {
+      opacity: 0.92;
+      filter: blur(20px);
     }
   </style>
 </head>
@@ -412,12 +550,14 @@
 
       </div>
 
-      <!-- MAIN CTA ACTION (Apple System Blue Pill) -->
+      <!-- MAIN CTA ACTION (Apple Intelligence Flowing Iridescent Glow) -->
       <div class="flex flex-col items-center justify-center pt-2">
-        <button onclick="runEvaluation()" id="run-eval-btn" class="flex items-center space-x-2 px-8 py-3 rounded-full bg-[#0071e3] hover:bg-[#0077ed] text-white font-medium text-xs shadow-lg transition active:scale-[0.98]">
-          <i data-lucide="zap" class="w-3.5 h-3.5"></i>
-          <span>Run Debiased AI Evaluation</span>
-        </button>
+        <div id="run-eval-wrap" class="ai-button-wrap">
+          <button onclick="runEvaluation()" id="run-eval-btn" class="ai-button group">
+            <i data-lucide="sparkles" class="w-4 h-4 text-cyan-300 transition-transform duration-300 group-hover:scale-110"></i>
+            <span>Run Debiased AI Evaluation</span>
+          </button>
+        </div>
         <div id="eval-status-indicator" class="hidden text-xs text-zinc-400 font-medium animate-pulse mt-3 text-center flex items-center space-x-2">
           <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-[#0071e3]"></i>
           <span id="eval-status-msg">Evaluating forward and reverse passes...</span>
@@ -797,10 +937,12 @@
 
     async function init() {
       lucide.createIcons();
-      await checkApiStatus();
-      await loadPresets();
-      await loadRubrics();
-      await loadGuidelineCount();
+      await Promise.all([
+        checkApiStatus(),
+        loadPresets(),
+        loadRubrics(),
+        loadGuidelineCount()
+      ]);
       onSourceModelChanged('a');
       onSourceModelChanged('b');
       if (globalPresets.length > 0) {
@@ -1172,25 +1314,27 @@
 
     async function runEvaluation() {
       const btn = document.getElementById('run-eval-btn');
+      const wrap = document.getElementById('run-eval-wrap');
       const statusInd = document.getElementById('eval-status-indicator');
       const statusMsg = document.getElementById('eval-status-msg');
 
       btn.disabled = true;
+      if (wrap) wrap.classList.add('is-evaluating');
       statusInd.classList.remove('hidden');
 
       const provider = document.getElementById('judge-provider').value;
       let elapsed = 0;
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Evaluating (0s)...</span>`;
-      statusMsg.innerText = `Evaluating dual passes (A vs B & B vs A) via ${provider}...`;
+      btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4 text-cyan-300 animate-spin"></i><span>Evaluating Consensus...</span>`;
+      statusMsg.innerText = `Evaluating dual passes (A vs B & B vs A) via ${provider}... (0s)`;
       lucide.createIcons();
 
       const timer = setInterval(() => {
         elapsed++;
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Evaluating (${elapsed}s)...</span>`;
         if (elapsed > 4) {
-          statusMsg.innerText = `Running neuro-symbolic verifier & checking rubrics (${elapsed}s)...`;
+          statusMsg.innerText = `Running neuro-symbolic verifier & checking rubrics... (${elapsed}s)`;
+        } else {
+          statusMsg.innerText = `Evaluating dual passes (A vs B & B vs A) via ${provider}... (${elapsed}s)`;
         }
-        lucide.createIcons();
       }, 1000);
 
       const prompt = document.getElementById('prompt-input').value;
@@ -1252,8 +1396,9 @@
       } finally {
         clearInterval(timer);
         btn.disabled = false;
+        if (wrap) wrap.classList.remove('is-evaluating');
         statusInd.classList.add('hidden');
-        btn.innerHTML = `<i data-lucide="zap" class="w-3.5 h-3.5"></i><span>Run Debiased AI Evaluation</span>`;
+        btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4 text-cyan-300 transition-transform duration-300 group-hover:scale-110"></i><span>Run Debiased AI Evaluation</span>`;
         lucide.createIcons();
       }
     }
@@ -1618,18 +1763,40 @@
         (data.rubric_hierarchy || []).forEach(h => {
           const info = data.rubric_criteria[h.dimension] || {};
           container.innerHTML += `
-            <div class="apple-card p-4 space-y-2.5">
-              <div class="flex items-center justify-between">
-                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#0071e3]/15 text-[#0071e3] border border-[#0071e3]/30">Priority ${escapeHtml(h.priority)}</span>
-                <span class="text-[11px] text-[#86868b] font-medium">${escapeHtml(h.tier_name)}</span>
+            <div class="apple-card p-5 space-y-3.5 flex flex-col justify-between">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide bg-[#0071e3]/15 text-[#38bdf8] border border-[#0071e3]/30">Priority ${escapeHtml(h.priority)}</span>
+                  <span class="text-[11px] text-[#86868b] font-medium tracking-tight">${escapeHtml(h.tier_name)}</span>
+                </div>
+                <h3 class="font-bold text-white text-sm tracking-tight">${escapeHtml(h.dimension.toUpperCase().replace(/_/g, ' '))}</h3>
+                <p class="text-xs text-zinc-200 leading-relaxed">${escapeHtml(h.rule)}</p>
+                ${info.description ? `<p class="text-[11px] text-[#86868b] leading-relaxed">${escapeHtml(info.description)}</p>` : ''}
               </div>
-              <h3 class="font-bold text-white text-xs tracking-tight">${escapeHtml(h.dimension.toUpperCase().replace('_', ' '))}</h3>
-              <p class="text-[11px] text-zinc-300 leading-relaxed">${escapeHtml(h.rule)}</p>
-              <p class="text-[11px] text-[#86868b]">${escapeHtml(info.description || '')}</p>
-              <div class="space-y-1 text-[11px] pt-1">
-                <div class="p-2 rounded-lg bg-[#ff453a]/10 border border-[#ff453a]/20 text-[#ff453a]"><b>1/5 (Fail):</b> ${escapeHtml(info.score_1 || '')}</div>
-                <div class="p-2 rounded-lg bg-black/40 text-zinc-300"><b>3/5 (Acceptable):</b> ${escapeHtml(info.score_3 || '')}</div>
-                <div class="p-2 rounded-lg bg-[#30d158]/10 border border-[#30d158]/20 text-[#30d158]"><b>5/5 (Exemplary):</b> ${escapeHtml(info.score_5 || '')}</div>
+
+              <!-- Apple HIG Segmented Scoring Criteria Inspector -->
+              <div class="rounded-xl bg-black/40 border border-white/[0.08] divide-y divide-white/[0.05] overflow-hidden mt-1">
+                <div class="p-3 flex items-start gap-3 hover:bg-white/[0.02] transition">
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 shrink-0 mt-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                    1 · Fail
+                  </span>
+                  <span class="text-xs text-zinc-300 leading-relaxed">${escapeHtml(info.score_1 || '')}</span>
+                </div>
+                <div class="p-3 flex items-start gap-3 hover:bg-white/[0.02] transition">
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-500/10 text-zinc-300 border border-zinc-500/20 shrink-0 mt-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+                    3 · Acceptable
+                  </span>
+                  <span class="text-xs text-zinc-300 leading-relaxed">${escapeHtml(info.score_3 || '')}</span>
+                </div>
+                <div class="p-3 flex items-start gap-3 hover:bg-white/[0.02] transition">
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0 mt-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    5 · Exemplary
+                  </span>
+                  <span class="text-xs text-zinc-300 leading-relaxed">${escapeHtml(info.score_5 || '')}</span>
+                </div>
               </div>
             </div>
           `;
