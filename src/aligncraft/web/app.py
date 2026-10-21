@@ -359,6 +359,15 @@ def serve_index():
     return FileResponse(index_path)
 
 
+@app.get("/logo.png")
+def serve_logo():
+    """Serves the Verity Studio brand logo."""
+    logo_path = STATIC_DIR / "logo.png"
+    if not logo_path.exists():
+        raise HTTPException(status_code=404, detail="Brand logo not found.")
+    return FileResponse(logo_path, media_type="image/png")
+
+
 @app.get("/api/status")
 def get_status():
     """Returns environment status and API key detection."""
